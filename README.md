@@ -36,6 +36,7 @@ The application expects CSV files with the following structure:
 - **Field at index 5** (sixth column): URL for QR code
 
 Example CSV row (tab-separated):
+
 ```
 recH0IoWaAy9p16Ld	0110_SM_2800x2070_18	0110	SM	BIAŁY KORPUSOWY	https://azmproducts.plasmic.run/product/recH0IoWaAy9p16Ld	PLN 215,84	Extra Data
 ```
@@ -57,6 +58,7 @@ The generated Word document uses precise A4 layout specifications:
 ### Card Design
 
 Each card contains:
+
 - QR code on the left (default 28mm, configurable 20-40mm)
 - Product name (bold) on the right
 - Subtitle text: "zaskanuj aby zobaczyć szczegóły i cenę"
@@ -65,15 +67,18 @@ Each card contains:
 ## Usage
 
 1. **Upload CSV File**
+
    - Click the upload area or drag & drop your CSV file
    - Supports both comma and tab-separated files
 
 2. **Review Data**
+
    - Check the preview table for validation errors
    - View statistics: valid, invalid, excluded, and total rows
    - Uncheck rows you want to exclude from the document
 
 3. **Configure Settings**
+
    - Adjust QR code size (20-40mm)
    - Adjust card height (40-80mm)
    - View calculated cards per page
@@ -86,6 +91,7 @@ Each card contains:
 ## Validation
 
 The application validates:
+
 - Empty product names
 - Empty or invalid URLs (must start with http:// or https://)
 - Duplicate URLs (warnings)
@@ -129,6 +135,7 @@ The production build will be created in the `dist` directory.
 ## Browser Compatibility
 
 The application works in all modern browsers that support:
+
 - ES6+ JavaScript
 - File API
 - Blob API
