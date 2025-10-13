@@ -1,0 +1,28 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run dev)",
+      "mcp__ide__getDiagnostics",
+      "Bash(npm install:*)",
+      "Read(//c/Users/artur/Downloads/**)",
+      "WebSearch",
+      "WebFetch(domain:github.com)",
+      "Bash(npm search:*)",
+      "Bash(curl -L \"https://github.com/google/fonts/raw/main/ofl/dejavusans/DejaVuSans.ttf\" -o DejaVuSans.ttf)",
+      "Bash(curl -L \"https://github.com/google/fonts/raw/main/apache/roboto/static/Roboto-Regular.ttf\" -o Roboto-Regular.ttf)",
+      "Bash(node -e \"const fs = require(''''fs''''); const font = fs.readFileSync(''''Roboto-Regular.ttf''''); console.log(font.toString(''''base64''''));\")",
+      "Bash(curl -L \"https://github.com/google/fonts/raw/main/apache/roboto/static/Roboto-Regular.ttf\" -o \"E:\\projects\\qrCodeGenerator\\qr-card-generator\\public\\Roboto-Regular.ttf\")",
+      "Bash(xxd:*)",
+      "Bash(curl -L \"https://github.com/google/fonts/raw/main/apache/roboto/static/Roboto-Regular.ttf\" -o public/Roboto-Regular.ttf)",
+      "Bash(curl:*)",
+      "Bash(node download-font.js)",
+      "WebFetch(domain:www.devlinpeck.com)",
+      "Bash(powershell:*)",
+      "Bash(node:*)",
+      "Bash(npm uninstall:*)",
+      "Bash(unzip:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
