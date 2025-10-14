@@ -12,7 +12,7 @@ function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [settings, setSettings] = useState<AppSettings>({
-    qrSize: 28,
+    qrSize: 24,
     cardHeight: 36
   });
 

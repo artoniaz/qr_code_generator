@@ -35,6 +35,9 @@ export async function loadDejaVuFont(pdf: jsPDF): Promise<boolean> {
     pdf.addFileToVFS('Roboto-Regular.ttf', base64);
     pdf.addFont('Roboto-Regular.ttf', 'Roboto', 'normal');
 
+    // Set as default font
+    pdf.setFont('Roboto', 'normal');
+
     fontLoaded = true;
     console.log('Roboto font loaded successfully - Polish characters supported!');
     return true;

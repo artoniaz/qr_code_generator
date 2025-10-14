@@ -6,22 +6,28 @@ import { loadDejaVuFont } from '../fonts/dejavu-font.ts';
 // Constants for A4 page layout
 const A4_WIDTH_MM = 210;
 const A4_HEIGHT_MM = 297;
-const MARGIN_MM = 12;
-const GAP_MM = 3;
+const TOP_BOTTOM_MARGIN_MM = 15;
+const LEFT_RIGHT_MARGIN_MM = 7;
 const COLUMNS = 3;
 
-// Calculate dimensions
-const CONTENT_WIDTH_MM = A4_WIDTH_MM - (2 * MARGIN_MM); // 186 mm
-const HORIZONTAL_GAPS_MM = (COLUMNS - 1) * GAP_MM; // 6 mm
-const CARD_WIDTH_MM = (CONTENT_WIDTH_MM - HORIZONTAL_GAPS_MM) / COLUMNS; // 60 mm
+// Card dimensions (calculated to fit with margins and gaps)
+const COLUMN_GAP_MM = 3;
+const ROW_GAP_MM = 0;
 
-function calculateRowsPerPage(cardHeightMM: number): number {
-  const contentHeightMM = A4_HEIGHT_MM - (2 * MARGIN_MM); // 273 mm
-  return Math.floor((contentHeightMM + GAP_MM) / (cardHeightMM + GAP_MM));
+// Calculate exact dimensions to fill the page
+const AVAILABLE_HEIGHT_MM = A4_HEIGHT_MM - (2 * TOP_BOTTOM_MARGIN_MM); // 267mm
+const ROWS_PER_PAGE = 7;
+const CARD_HEIGHT_MM = AVAILABLE_HEIGHT_MM / ROWS_PER_PAGE; // 38.142857mm
+
+// Card width: (210 - 14 - 6) / 3 = 190 / 3 = 63.333mm
+const CARD_WIDTH_MM = (A4_WIDTH_MM - (2 * LEFT_RIGHT_MARGIN_MM) - ((COLUMNS - 1) * COLUMN_GAP_MM)) / COLUMNS;
+
+function calculateRowsPerPage(): number {
+  return ROWS_PER_PAGE;
 }
 
-function calculateCardsPerPage(cardHeightMM: number): number {
-  return COLUMNS * calculateRowsPerPage(cardHeightMM);
+function calculateCardsPerPage(): number {
+  return COLUMNS * calculateRowsPerPage();
 }
 
 async function drawCard(
@@ -34,12 +40,12 @@ async function drawCard(
 ): Promise<void> {
   const qrDataUrl = await generateQRCode(row.url, settings.qrSize);
 
-  const PADDING_MM = 4;
-  const TEXT_SPACING_MM = 6;
+  const PADDING_MM = 5;
+  const TEXT_SPACING_MM = 3;
 
   // Draw border for debugging (optional - comment out if not needed)
-  // pdf.setDrawColor(200, 200, 200);
-  // pdf.rect(x, y, CARD_WIDTH_MM, settings.cardHeight);
+  pdf.setDrawColor(200, 200, 200);
+  pdf.rect(x, y, CARD_WIDTH_MM, CARD_HEIGHT_MM);
 
   // Calculate positions
   const qrX = x + PADDING_MM;
@@ -58,16 +64,18 @@ async function drawCard(
   // Text starting position - align text area with QR code
   const textX = qrX + settings.qrSize + TEXT_SPACING_MM;
   const textStartY = qrY; // Start at same Y as QR code
-  const availableTextWidth = CARD_WIDTH_MM - settings.qrSize - TEXT_SPACING_MM - (2 * PADDING_MM);
+  // Available text width: card width - left padding - QR size - spacing - right padding
+  // 63 - 5 - 24 - 3 - 5 = 26mm for text
+  const availableTextWidth = CARD_WIDTH_MM - PADDING_MM - settings.qrSize - TEXT_SPACING_MM - PADDING_MM;
 
   // Draw product name (bold) - start from top, aligned with QR code top
-  pdf.setFontSize(10);
+  pdf.setFontSize(12);
   if (fontLoaded) {
     pdf.setFont('Roboto', 'normal');
   } else {
     pdf.setFont('helvetica', 'bold');
   }
-  const productNameY = textStartY + 3; // Start 3mm from top (font baseline adjustment)
+  const productNameY = textStartY + 4; // Start 4mm from top (font baseline adjustment)
 
   // Draw text
   const lines = pdf.splitTextToSize(row.productName, availableTextWidth);
@@ -76,15 +84,19 @@ async function drawCard(
     align: 'left'
   });
 
-  // Draw description - positioned below product name
+  // Calculate the actual height of the product name text
+  const lineHeight = 12 * 1.2 * 0.352778; // fontSize * lineHeightFactor * mm conversion
+  const titleHeight = lines.length * lineHeight;
+
+  // Draw description - positioned below product name with dynamic spacing
   if (fontLoaded) {
     pdf.setFont('Roboto', 'normal');
   } else {
     pdf.setFont('helvetica', 'normal');
   }
-  pdf.setFontSize(7);
+  pdf.setFontSize(8);
   pdf.setTextColor(102, 102, 102);
-  const descriptionY = productNameY + 8; // 8mm below product name
+  const descriptionY = productNameY + titleHeight + 2; // Position below title with 2mm gap
 
   const descLines = pdf.splitTextToSize('zeskanuj, aby poznać szczegóły i cenę', availableTextWidth);
   pdf.text(descLines, textX, descriptionY, {
@@ -119,8 +131,12 @@ export async function generatePdf(
   // Try to load custom font for Polish character support
   const fontLoaded = await loadDejaVuFont(pdf);
 
-  const cardsPerPage = calculateCardsPerPage(settings.cardHeight);
-  const rowsPerPage = calculateRowsPerPage(settings.cardHeight);
+  if (!fontLoaded) {
+    console.warn('Font loading failed - Polish characters may not display correctly');
+  }
+
+  const cardsPerPage = calculateCardsPerPage();
+  const rowsPerPage = calculateRowsPerPage();
   const totalPages = Math.ceil(validRows.length / cardsPerPage);
 
   let cardIndex = 0;
@@ -137,8 +153,10 @@ export async function generatePdf(
     // Draw cards for this page
     for (let row = 0; row < rowsPerPage && cardIndex < validRows.length; row++) {
       for (let col = 0; col < COLUMNS && cardIndex < validRows.length; col++) {
-        const x = MARGIN_MM + (col * (CARD_WIDTH_MM + GAP_MM));
-        const y = MARGIN_MM + (row * (settings.cardHeight + GAP_MM));
+        // Calculate x position: left margin + (column * (card width + gap))
+        const x = LEFT_RIGHT_MARGIN_MM + (col * (CARD_WIDTH_MM + COLUMN_GAP_MM));
+        // Calculate y position: top margin + (row * card height) - no gap between rows
+        const y = TOP_BOTTOM_MARGIN_MM + (row * CARD_HEIGHT_MM);
 
         await drawCard(pdf, validRows[cardIndex], x, y, settings, fontLoaded);
         cardIndex++;
