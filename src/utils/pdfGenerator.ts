@@ -43,10 +43,6 @@ async function drawCard(
   const PADDING_MM = 5;
   const TEXT_SPACING_MM = 3;
 
-  // Draw border for debugging (optional - comment out if not needed)
-  pdf.setDrawColor(200, 200, 200);
-  pdf.rect(x, y, CARD_WIDTH_MM, CARD_HEIGHT_MM);
-
   // Calculate positions
   const qrX = x + PADDING_MM;
   const qrY = y + PADDING_MM;

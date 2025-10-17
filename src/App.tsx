@@ -13,15 +13,19 @@ function App() {
   const [error, setError] = useState<string | null>(null);
   const [settings, setSettings] = useState<AppSettings>({
     qrSize: 24,
-    cardHeight: 36
+    cardHeight: 36,
+    productType: 'plyty'
   });
 
-  const handleFileSelect = async (file: File) => {
+  const handleFileSelect = async (file: File, productType: string) => {
     setIsLoading(true);
     setError(null);
 
     try {
-      const rows = await parseCSVFile(file);
+      // Update settings with the selected product type
+      setSettings(prev => ({ ...prev, productType }));
+
+      const rows = await parseCSVFile(file, productType);
       const rowsWithDuplicates = checkDuplicates(rows);
       setCsvRows(rowsWithDuplicates);
     } catch (err) {
@@ -94,7 +98,7 @@ function App() {
 
       <footer className="app-footer">
         <p>
-          Expected CSV format: Field 1 (index 1) = Product Name, Field 5 (index 5) = URL
+          Select a product type before uploading your CSV file. Each product type has different field mappings.
         </p>
       </footer>
     </div>

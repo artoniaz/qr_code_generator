@@ -1,5 +1,6 @@
 import Papa from 'papaparse';
 import type { CSVRow, ValidationResult } from '../types.ts';
+import { getProductTypeById } from '../config/productTypes.ts';
 
 const URL_REGEX = /^https?:\/\/.+/i;
 
@@ -18,36 +19,15 @@ export function validateURL(url: string): ValidationResult {
   };
 }
 
-export function parseCSVRow(row: string[], index: number): CSVRow {
+export function parseCSVRow(row: string[], index: number, productTypeId: string = 'plyty'): CSVRow {
   const errors: string[] = [];
+  const productTypeConfig = getProductTypeById(productTypeId);
 
-  // Field mapping based on spec:
-  // Index 1 (0-based): Product name parts (e.g., "0110_SM_2800x2070_18")
-  // Index 4 (0-based): Color name (e.g., "BIAŁY KORPUSOWY")
-  // Index 5 (0-based): URL for QR code
+  // Get URL from configured index
+  const url = row[productTypeConfig.fields.urlIndex] || '';
 
-  const rawProductName = row[1] || '';
-  const colorName = row[4] || '';
-  const url = row[5] || '';
-
-  // Format product name: "Biały Korpusowy 0110 SM"
-  // Extract code (0110) and type (SM) from raw product name
-  let productName = rawProductName;
-  if (rawProductName && colorName) {
-    const parts = rawProductName.split('_');
-    if (parts.length >= 2) {
-      const code = parts[0]; // e.g., "0110"
-      const type = parts[1]; // e.g., "SM"
-
-      // Capitalize first letter of each word in color name, rest lowercase
-      const formattedColor = colorName
-        .split(' ')
-        .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-        .join(' ');
-
-      productName = `${formattedColor} ${code} ${type}`;
-    }
-  }
+  // Format product name using the product type's formatter
+  const productName = productTypeConfig.formatProductName(row);
 
   if (!productName.trim()) {
     errors.push('Product name is empty');
@@ -58,14 +38,19 @@ export function parseCSVRow(row: string[], index: number): CSVRow {
     errors.push(...urlValidation.errors);
   }
 
+  // Use configured ID index or fallback to default
+  const idIndex = productTypeConfig.fields.idIndex ?? 0;
+  const id = row[idIndex] || `row-${index}`;
+
   return {
-    id: row[0] || `row-${index}`,
+    id,
     productName,
     url,
     rawData: row,
     isValid: errors.length === 0,
     errors,
-    isExcluded: false
+    isExcluded: false,
+    productType: productTypeId
   };
 }
 
@@ -77,7 +62,7 @@ export function detectDelimiter(csvText: string): string {
   return tabCount > commaCount ? '\t' : ',';
 }
 
-export async function parseCSVFile(file: File): Promise<CSVRow[]> {
+export async function parseCSVFile(file: File, productTypeId: string = 'plyty'): Promise<CSVRow[]> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
 
@@ -90,7 +75,7 @@ export async function parseCSVFile(file: File): Promise<CSVRow[]> {
         skipEmptyLines: true,
         complete: (results) => {
           const rows = results.data as string[][];
-          const parsedRows = rows.map((row, index) => parseCSVRow(row, index));
+          const parsedRows = rows.map((row, index) => parseCSVRow(row, index, productTypeId));
           resolve(parsedRows);
         },
         error: (error) => {

@@ -1,11 +1,14 @@
 import React, { useCallback, useState } from 'react';
+import { getProductTypeOptions } from '../config/productTypes.ts';
 
 interface UploadCSVProps {
-  onFileSelect: (file: File) => void;
+  onFileSelect: (file: File, productType: string) => void;
 }
 
 export const UploadCSV: React.FC<UploadCSVProps> = ({ onFileSelect }) => {
   const [isDragging, setIsDragging] = useState(false);
+  const [selectedProductType, setSelectedProductType] = useState('plyty');
+  const productTypeOptions = getProductTypeOptions();
 
   const handleDragEnter = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -33,22 +36,43 @@ export const UploadCSV: React.FC<UploadCSVProps> = ({ onFileSelect }) => {
     if (files && files.length > 0) {
       const file = files[0];
       if (file.name.endsWith('.csv') || file.name.endsWith('.txt')) {
-        onFileSelect(file);
+        onFileSelect(file, selectedProductType);
       } else {
         alert('Please upload a CSV file');
       }
     }
-  }, [onFileSelect]);
+  }, [onFileSelect, selectedProductType]);
 
   const handleFileInput = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files && files.length > 0) {
-      onFileSelect(files[0]);
+      onFileSelect(files[0], selectedProductType);
     }
-  }, [onFileSelect]);
+  }, [onFileSelect, selectedProductType]);
 
   return (
     <div className="upload-container">
+      <div className="product-type-selector">
+        <label htmlFor="product-type-select" className="product-type-label">
+          Product Type:
+        </label>
+        <select
+          id="product-type-select"
+          value={selectedProductType}
+          onChange={(e) => setSelectedProductType(e.target.value)}
+          className="product-type-select"
+        >
+          {productTypeOptions.map(option => (
+            <option key={option.value} value={option.value} title={option.description}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+        <p className="product-type-description">
+          {productTypeOptions.find(opt => opt.value === selectedProductType)?.description}
+        </p>
+      </div>
+
       <div
         className={`upload-zone ${isDragging ? 'dragging' : ''}`}
         onDragEnter={handleDragEnter}

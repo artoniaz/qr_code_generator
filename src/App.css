@@ -48,6 +48,53 @@
   margin-bottom: 2rem;
 }
 
+/* Product Type Selector */
+.product-type-selector {
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.product-type-label {
+  display: block;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 0.5rem;
+}
+
+.product-type-select {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 1rem;
+  background: white;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+
+.product-type-select:hover {
+  border-color: #667eea;
+}
+
+.product-type-select:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.product-type-description {
+  margin: 0.75rem 0 0 0;
+  font-size: 0.875rem;
+  color: #666;
+  padding: 0.75rem;
+  background: #f8f9fa;
+  border-radius: 4px;
+  border-left: 3px solid #667eea;
+}
+
 .upload-zone {
   border: 2px dashed #ccc;
   border-radius: 8px;
