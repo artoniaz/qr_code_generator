@@ -17,7 +17,7 @@ export const PRODUCT_TYPES: Record<string, ProductTypeConfig> = {
   plyty: {
     id: 'plyty',
     name: 'Płyty',
-    description: 'Current format: Product name (index 1), Color (index 4), URL (index 5)',
+    description: 'Aktualny format: Nazwa produktu (indeks 1), Kolor (indeks 4), URL (indeks 5)',
     fields: {
       productNameIndex: 1,
       colorNameIndex: 4,
@@ -51,7 +51,7 @@ export const PRODUCT_TYPES: Record<string, ProductTypeConfig> = {
   blaty: {
     id: 'blaty',
     name: 'Blaty',
-    description: 'Blaty format: Product code (index 1), Color (index 5), URL (index 6)',
+    description: 'Format blatów: Kod produktu (indeks 1), Kolor (indeks 5), URL (indeks 6)',
     fields: {
       productNameIndex: 1,
       colorNameIndex: 5,

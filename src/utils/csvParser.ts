@@ -8,9 +8,9 @@ export function validateURL(url: string): ValidationResult {
   const errors: string[] = [];
 
   if (!url || url.trim() === '') {
-    errors.push('URL is empty');
+    errors.push('URL jest pusty');
   } else if (!URL_REGEX.test(url)) {
-    errors.push('URL must start with http:// or https://');
+    errors.push('URL musi zaczynać się od http:// lub https://');
   }
 
   return {
@@ -30,7 +30,7 @@ export function parseCSVRow(row: string[], index: number, productTypeId: string 
   const productName = productTypeConfig.formatProductName(row);
 
   if (!productName.trim()) {
-    errors.push('Product name is empty');
+    errors.push('Nazwa produktu jest pusta');
   }
 
   const urlValidation = validateURL(url);
@@ -85,7 +85,7 @@ export async function parseCSVFile(file: File, productTypeId: string = 'plyty'):
     };
 
     reader.onerror = () => {
-      reject(new Error('Failed to read file'));
+      reject(new Error('Nie udało się odczytać pliku'));
     };
 
     reader.readAsText(file, 'UTF-8');
@@ -104,7 +104,7 @@ export function checkDuplicates(rows: CSVRow[]): CSVRow[] {
     if (count > 0) {
       return {
         ...row,
-        errors: [...row.errors, `Duplicate URL (appears ${count + 1} times)`]
+        errors: [...row.errors, `Duplikat URL (występuje ${count + 1} razy)`]
       };
     }
 

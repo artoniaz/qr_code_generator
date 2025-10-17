@@ -26,11 +26,11 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
 
   return (
     <div className="settings-panel">
-      <h3>Settings</h3>
+      <h3>Ustawienia</h3>
 
       <div className="setting-item">
         <label htmlFor="qr-size">
-          QR Code Size: {settings.qrSize} mm
+          Rozmiar Kodu QR: {settings.qrSize} mm
         </label>
         <input
           id="qr-size"
@@ -50,7 +50,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
 
       <div className="setting-item">
         <label htmlFor="card-height">
-          Card Height: {settings.cardHeight} mm
+          Wysokość Karty: {settings.cardHeight} mm
         </label>
         <input
           id="card-height"
@@ -70,10 +70,10 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
 
       <div className="settings-info">
         <p className="info-text">
-          Card width is fixed at 60 mm (3 columns per A4 page)
+          Szerokość karty jest stała: 60 mm (3 kolumny na stronę A4)
         </p>
         <p className="info-text">
-          Cards per page: {Math.floor((273 + 3) / (settings.cardHeight + 3)) * 3}
+          Kart na stronę: {Math.floor((273 + 3) / (settings.cardHeight + 3)) * 3}
         </p>
       </div>
     </div>

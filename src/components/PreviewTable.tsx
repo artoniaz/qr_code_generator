@@ -22,19 +22,19 @@ export const PreviewTable: React.FC<PreviewTableProps> = ({
   return (
     <div className="preview-container">
       <div className="preview-header">
-        <h2>CSV Preview</h2>
+        <h2>Podgląd CSV</h2>
         <div className="preview-stats">
-          <span className="stat-item stat-valid">Valid: {validCount}</span>
-          <span className="stat-item stat-invalid">Invalid: {invalidCount}</span>
-          <span className="stat-item stat-excluded">Excluded: {excludedCount}</span>
-          <span className="stat-item stat-total">Total: {rows.length}</span>
+          <span className="stat-item stat-valid">Poprawne: {validCount}</span>
+          <span className="stat-item stat-invalid">Niepoprawne: {invalidCount}</span>
+          <span className="stat-item stat-excluded">Wykluczone: {excludedCount}</span>
+          <span className="stat-item stat-total">Razem: {rows.length}</span>
         </div>
       </div>
 
       {rows.length > 1000 && (
         <div className="warning-banner">
-          Warning: Your file contains {rows.length} rows. Processing very large files may
-          affect performance. Consider splitting into smaller files.
+          Uwaga: Twój plik zawiera {rows.length} wierszy. Przetwarzanie bardzo dużych plików może
+          wpłynąć na wydajność. Rozważ podział na mniejsze pliki.
         </div>
       )}
 
@@ -42,11 +42,11 @@ export const PreviewTable: React.FC<PreviewTableProps> = ({
         <table className="preview-table">
           <thead>
             <tr>
-              <th className="col-checkbox">Include</th>
+              <th className="col-checkbox">Uwzględnij</th>
               <th className="col-status">Status</th>
-              <th className="col-name">Product Name</th>
+              <th className="col-name">Nazwa Produktu</th>
               <th className="col-url">URL</th>
-              <th className="col-errors">Issues</th>
+              <th className="col-errors">Problemy</th>
             </tr>
           </thead>
           <tbody>
@@ -68,10 +68,10 @@ export const PreviewTable: React.FC<PreviewTableProps> = ({
                     {row.isValid ? '✓' : '✗'}
                   </span>
                 </td>
-                <td className="col-name">{row.productName || '(empty)'}</td>
+                <td className="col-name">{row.productName || '(puste)'}</td>
                 <td className="col-url">
                   <div className="url-cell" title={row.url}>
-                    {row.url || '(empty)'}
+                    {row.url || '(puste)'}
                   </div>
                 </td>
                 <td className="col-errors">
@@ -91,7 +91,7 @@ export const PreviewTable: React.FC<PreviewTableProps> = ({
 
       {hasMore && (
         <div className="preview-footer">
-          Showing first {maxRows} of {rows.length} rows
+          Pokazano pierwsze {maxRows} z {rows.length} wierszy
         </div>
       )}
     </div>

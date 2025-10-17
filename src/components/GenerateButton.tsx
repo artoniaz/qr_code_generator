@@ -16,7 +16,7 @@ export const GenerateButton: React.FC<GenerateButtonProps> = ({ rows, settings }
 
   const handleGenerate = async () => {
     if (validRows.length === 0) {
-      setError('No valid rows to generate document');
+      setError('Brak poprawnych wierszy do wygenerowania dokumentu');
       return;
     }
 
@@ -29,7 +29,7 @@ export const GenerateButton: React.FC<GenerateButtonProps> = ({ rows, settings }
         setProgress({ current, total });
       });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to generate document');
+      setError(err instanceof Error ? err.message : 'Nie udało się wygenerować dokumentu');
       console.error('Generation error:', err);
     } finally {
       setIsGenerating(false);
@@ -46,10 +46,10 @@ export const GenerateButton: React.FC<GenerateButtonProps> = ({ rows, settings }
       >
         {isGenerating ? (
           <span>
-            Generating... {progress.total > 0 && `(Page ${progress.current}/${progress.total})`}
+            Generowanie... {progress.total > 0 && `(Strona ${progress.current}/${progress.total})`}
           </span>
         ) : (
-          <span>Generate PDF ({validRows.length} cards)</span>
+          <span>Generuj PDF ({validRows.length} kart)</span>
         )}
       </button>
 
@@ -61,7 +61,7 @@ export const GenerateButton: React.FC<GenerateButtonProps> = ({ rows, settings }
 
       {validRows.length === 0 && rows.length > 0 && (
         <div className="warning-message">
-          No valid rows selected for generation
+          Brak poprawnych wierszy wybranych do generowania
         </div>
       )}
     </div>

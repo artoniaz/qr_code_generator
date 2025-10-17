@@ -25,9 +25,16 @@
   flex: 1;
   padding: 2rem;
   max-width: 1400px;
-  width: 100%;
+  width: calc(100vw - 4rem);
   margin: 0 auto;
   box-sizing: border-box;
+}
+
+@media (max-width: 768px) {
+  .app-main {
+    padding: 1rem;
+    width: calc(100vw - 2rem);
+  }
 }
 
 .app-footer {

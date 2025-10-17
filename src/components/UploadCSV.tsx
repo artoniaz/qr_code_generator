@@ -38,7 +38,7 @@ export const UploadCSV: React.FC<UploadCSVProps> = ({ onFileSelect }) => {
       if (file.name.endsWith('.csv') || file.name.endsWith('.txt')) {
         onFileSelect(file, selectedProductType);
       } else {
-        alert('Please upload a CSV file');
+        alert('Proszę przesłać plik CSV');
       }
     }
   }, [onFileSelect, selectedProductType]);
@@ -54,7 +54,7 @@ export const UploadCSV: React.FC<UploadCSVProps> = ({ onFileSelect }) => {
     <div className="upload-container">
       <div className="product-type-selector">
         <label htmlFor="product-type-select" className="product-type-label">
-          Product Type:
+          Typ Produktu:
         </label>
         <select
           id="product-type-select"
@@ -103,9 +103,9 @@ export const UploadCSV: React.FC<UploadCSVProps> = ({ onFileSelect }) => {
             <line x1="12" y1="3" x2="12" y2="15" />
           </svg>
           <p className="upload-text">
-            <span className="upload-text-primary">Click to upload</span> or drag and drop
+            <span className="upload-text-primary">Kliknij aby przesłać</span> lub przeciągnij i upuść
           </p>
-          <p className="upload-text-secondary">CSV or TXT file (tab or comma separated)</p>
+          <p className="upload-text-secondary">Plik CSV lub TXT (separator: tabulator lub przecinek)</p>
         </label>
       </div>
     </div>

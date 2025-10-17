@@ -50,15 +50,15 @@ function App() {
   return (
     <div className="app">
       <header className="app-header">
-        <h1>QR Code Card Generator</h1>
-        <p>Generate Word documents with QR code cards from CSV files</p>
+        <h1>Generator Kart z Kodami QR</h1>
+        <p>Generuj dokumenty PDF z kartami kodów QR z plików CSV</p>
       </header>
 
       <main className="app-main">
         {csvRows.length === 0 ? (
           <div className="upload-section">
             <UploadCSV onFileSelect={handleFileSelect} />
-            {isLoading && <div className="loading">Loading CSV file...</div>}
+            {isLoading && <div className="loading">Wczytywanie pliku CSV...</div>}
             {error && <div className="error-message">{error}</div>}
           </div>
         ) : (
@@ -68,7 +68,7 @@ function App() {
                 className="clear-button"
                 onClick={() => setCsvRows([])}
               >
-                Load Different File
+                Wczytaj Inny Plik
               </button>
             </div>
 
@@ -98,7 +98,7 @@ function App() {
 
       <footer className="app-footer">
         <p>
-          Select a product type before uploading your CSV file. Each product type has different field mappings.
+          Wybierz typ produktu przed przesłaniem pliku CSV. Każdy typ produktu ma różne mapowanie pól.
         </p>
       </footer>
     </div>
