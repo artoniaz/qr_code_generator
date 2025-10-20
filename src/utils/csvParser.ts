@@ -94,17 +94,40 @@ export async function parseCSVFile(file: File, productTypeId: string = 'plyty'):
 
 export function checkDuplicates(rows: CSVRow[]): CSVRow[] {
   const urlMap = new Map<string, number>();
+  const productBaseCodeMap = new Map<string, number>();
 
   return rows.map(row => {
     if (!row.isValid) return row;
 
-    const count = urlMap.get(row.url) || 0;
-    urlMap.set(row.url, count + 1);
+    // Get productBaseCode from rawData (column 1 for both plyty and blaty)
+    const productBaseCode = row.rawData[1] || '';
 
-    if (count > 0) {
+    // Check for duplicate URLs
+    const urlCount = urlMap.get(row.url) || 0;
+    urlMap.set(row.url, urlCount + 1);
+
+    // Check for duplicate productBaseCode
+    const baseCodeCount = productBaseCodeMap.get(productBaseCode) || 0;
+    productBaseCodeMap.set(productBaseCode, baseCodeCount + 1);
+
+    const errors = [...row.errors];
+    let shouldExclude = false;
+
+    if (urlCount > 0) {
+      errors.push(`Duplikat URL (występuje ${urlCount + 1} razy)`);
+      shouldExclude = true;
+    }
+
+    if (baseCodeCount > 0) {
+      errors.push(`Duplikat kodu produktu (występuje ${baseCodeCount + 1} razy)`);
+      shouldExclude = true;
+    }
+
+    if (shouldExclude) {
       return {
         ...row,
-        errors: [...row.errors, `Duplikat URL (występuje ${count + 1} razy)`]
+        errors,
+        isExcluded: true
       };
     }
 

@@ -51,7 +51,7 @@ export const PRODUCT_TYPES: Record<string, ProductTypeConfig> = {
   blaty: {
     id: 'blaty',
     name: 'Blaty',
-    description: 'Format blatów: Kod produktu (indeks 1), Kolor (indeks 5), URL (indeks 6)',
+    description: 'Format blatów: Kod produktu (indeks 1), Decor (indeks 3), Struktura (indeks 4), Kolor (indeks 5), URL (indeks 6)',
     fields: {
       productNameIndex: 1,
       colorNameIndex: 5,
@@ -59,26 +59,22 @@ export const PRODUCT_TYPES: Record<string, ProductTypeConfig> = {
       idIndex: 0
     },
     formatProductName: (row: string[]) => {
-      const rawProductName = row[1] || '';
       const colorName = row[5] || '';
+      const decor = row[3] || ''; // Column 3: decor number (e.g., "190")
+      const structure = row[4] || ''; // Column 4: structure (e.g., "RS")
 
-      if (rawProductName && colorName) {
-        const parts = rawProductName.split('_');
-        if (parts.length >= 2) {
-          const code = parts[0]; // e.g., "K190"
-          const type = parts[1]; // e.g., "RS"
+      if (colorName && decor && structure) {
+        // Capitalize first letter of each word in color name, rest lowercase
+        const formattedColor = colorName
+          .split(' ')
+          .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+          .join(' ');
 
-          // Capitalize first letter of each word in color name, rest lowercase
-          const formattedColor = colorName
-            .split(' ')
-            .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-            .join(' ');
-
-          return `${formattedColor} ${code} ${type}`;
-        }
+        return `${formattedColor} ${decor} ${structure}`;
       }
 
-      return rawProductName;
+      // Fallback to raw product name if any field is missing
+      return row[1] || '';
     }
   }
 };
