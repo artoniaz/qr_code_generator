@@ -78,7 +78,7 @@ export async function parseCSVFile(file: File, productTypeId: string = 'plyty'):
           const parsedRows = rows.map((row, index) => parseCSVRow(row, index, productTypeId));
           resolve(parsedRows);
         },
-        error: (error) => {
+        error: (error: unknown) => {
           reject(error);
         }
       });

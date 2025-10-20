@@ -46,6 +46,7 @@ async function createCardCell(row: CSVRow, settings: AppSettings): Promise<Table
   const qrBuffer = base64ToBuffer(qrDataUrl);
 
   const PADDING_MM = 4;
+  const RIGHT_PADDING_MM = 2; // Half of the left padding
   const TEXT_SPACING_MM = 6;
 
   // Inner table for QR + Text layout
@@ -81,7 +82,8 @@ async function createCardCell(row: CSVRow, settings: AppSettings): Promise<Table
                     transformation: {
                       width: MM_TO_TWIPS(settings.qrSize),
                       height: MM_TO_TWIPS(settings.qrSize)
-                    }
+                    },
+                    type: 'png'
                   })
                 ]
               })
@@ -101,7 +103,7 @@ async function createCardCell(row: CSVRow, settings: AppSettings): Promise<Table
                 ]
               }),
               new Paragraph({
-                spacing: { before: 150 },
+                spacing: { before: 75 }, // Half of the previous 150 (twips)
                 children: [
                   new TextRun({
                     text: 'zeskanuj, aby poznać szczegóły i cenę',
@@ -126,7 +128,7 @@ async function createCardCell(row: CSVRow, settings: AppSettings): Promise<Table
       top: MM_TO_TWIPS(PADDING_MM),
       bottom: MM_TO_TWIPS(PADDING_MM),
       left: MM_TO_TWIPS(PADDING_MM),
-      right: MM_TO_TWIPS(PADDING_MM)
+      right: MM_TO_TWIPS(RIGHT_PADDING_MM)
     },
     children: [
       new Paragraph({

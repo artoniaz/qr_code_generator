@@ -12,7 +12,6 @@ const COLUMNS = 3;
 
 // Card dimensions (calculated to fit with margins and gaps)
 const COLUMN_GAP_MM = 3;
-const ROW_GAP_MM = 0;
 
 // Calculate exact dimensions to fill the page
 const AVAILABLE_HEIGHT_MM = A4_HEIGHT_MM - (2 * TOP_BOTTOM_MARGIN_MM); // 267mm
@@ -41,6 +40,7 @@ async function drawCard(
   const qrDataUrl = await generateQRCode(row.url, settings.qrSize);
 
   const PADDING_MM = 5;
+  const RIGHT_PADDING_MM = 2.5; // Half of the left padding
   const TEXT_SPACING_MM = 3;
 
   // Calculate positions
@@ -61,8 +61,8 @@ async function drawCard(
   const textX = qrX + settings.qrSize + TEXT_SPACING_MM;
   const textStartY = qrY; // Start at same Y as QR code
   // Available text width: card width - left padding - QR size - spacing - right padding
-  // 63 - 5 - 24 - 3 - 5 = 26mm for text
-  const availableTextWidth = CARD_WIDTH_MM - PADDING_MM - settings.qrSize - TEXT_SPACING_MM - PADDING_MM;
+  // 63 - 5 - 24 - 3 - 2.5 = 28.5mm for text
+  const availableTextWidth = CARD_WIDTH_MM - PADDING_MM - settings.qrSize - TEXT_SPACING_MM - RIGHT_PADDING_MM;
 
   // Draw product name (bold) - start from top, aligned with QR code top
   pdf.setFontSize(12);
@@ -92,7 +92,7 @@ async function drawCard(
   }
   pdf.setFontSize(8);
   pdf.setTextColor(102, 102, 102);
-  const descriptionY = productNameY + titleHeight + 2; // Position below title with 2mm gap
+  const descriptionY = productNameY + titleHeight + 1; // Position below title with 1mm gap (half of previous 2mm)
 
   const descLines = pdf.splitTextToSize('zeskanuj, aby poznać szczegóły i cenę', availableTextWidth);
   pdf.text(descLines, textX, descriptionY, {
