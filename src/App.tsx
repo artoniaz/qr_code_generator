@@ -2,7 +2,6 @@ import { useState } from 'react';
 import './App.css';
 import { UploadCSV } from './components/UploadCSV.tsx';
 import { PreviewTable } from './components/PreviewTable.tsx';
-import { SettingsPanel } from './components/SettingsPanel.tsx';
 import { GenerateButton } from './components/GenerateButton.tsx';
 import type { CSVRow, AppSettings } from './types.ts';
 import { parseCSVFile, checkDuplicates } from './utils/csvParser.ts';
@@ -81,11 +80,6 @@ function App() {
               </div>
 
               <div className="content-sidebar">
-                <SettingsPanel
-                  settings={settings}
-                  onSettingsChange={setSettings}
-                />
-
                 <GenerateButton
                   rows={csvRows}
                   settings={settings}

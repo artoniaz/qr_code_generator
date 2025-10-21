@@ -51,17 +51,17 @@ export const PRODUCT_TYPES: Record<string, ProductTypeConfig> = {
   blaty: {
     id: 'blaty',
     name: 'Blaty',
-    description: 'Format blatów: Kod produktu (indeks 1), Decor (indeks 3), Struktura (indeks 4), Kolor (indeks 5), URL (indeks 6)',
+    description: 'Format blatów: Kod produktu (indeks 1), Decor (indeks 2), Struktura (indeks 3), Kolor (indeks 4), URL (indeks 5)',
     fields: {
       productNameIndex: 1,
-      colorNameIndex: 5,
-      urlIndex: 6,
+      colorNameIndex: 4,
+      urlIndex: 5,
       idIndex: 0
     },
     formatProductName: (row: string[]) => {
-      const colorName = row[5] || '';
-      const decor = row[3] || ''; // Column 3: decor number (e.g., "190")
-      const structure = row[4] || ''; // Column 4: structure (e.g., "RS")
+      const colorName = row[4] || '';
+      const decor = row[2] || ''; // Column 2: decor number (e.g., "1008")
+      const structure = row[3] || ''; // Column 3: structure (e.g., "GR")
 
       if (colorName && decor && structure) {
         // Capitalize first letter of each word in color name, rest lowercase
