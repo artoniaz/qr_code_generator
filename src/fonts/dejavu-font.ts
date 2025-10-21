@@ -2,11 +2,7 @@
 
 import { jsPDF } from 'jspdf';
 
-let fontLoaded = false;
-
 export async function loadDejaVuFont(pdf: jsPDF): Promise<boolean> {
-  if (fontLoaded) return true;
-
   try {
     console.log('Loading Roboto font...');
 
@@ -38,7 +34,6 @@ export async function loadDejaVuFont(pdf: jsPDF): Promise<boolean> {
     // Set as default font
     pdf.setFont('Roboto', 'normal');
 
-    fontLoaded = true;
     console.log('Roboto font loaded successfully - Polish characters supported!');
     return true;
   } catch (error) {
