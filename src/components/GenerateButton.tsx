@@ -30,7 +30,6 @@ export const GenerateButton: React.FC<GenerateButtonProps> = ({ rows, settings }
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Nie udało się wygenerować etykiet');
-      console.error('Generation error:', err);
     } finally {
       setIsGenerating(false);
       setProgress({ current: 0, total: 0 });

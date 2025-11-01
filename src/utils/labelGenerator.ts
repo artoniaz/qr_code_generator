@@ -3,25 +3,31 @@ import { generateQRCode } from './qrGenerator.ts';
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
 
-// Brother QL label printer specifications
-// 62mm × 100mm label at 300 DPI
-const LABEL_WIDTH_MM = 62;
-const LABEL_HEIGHT_MM = 100;
+// Label printer specifications
+// 2.4" × 3.9" (61mm × 99mm) label at 300 DPI (landscape orientation)
+const LABEL_WIDTH_MM = 99;  // 3.9 inches (landscape: longer dimension as width)
+const LABEL_HEIGHT_MM = 61; // 2.4 inches (landscape: shorter dimension as height)
 const DPI = 300;
 
 // Convert mm to pixels at 300 DPI
 const MM_TO_PIXELS = DPI / 25.4;
-const LABEL_WIDTH_PX = Math.round(LABEL_WIDTH_MM * MM_TO_PIXELS); // 732 pixels
-const LABEL_HEIGHT_PX = Math.round(LABEL_HEIGHT_MM * MM_TO_PIXELS); // 1181 pixels
+const LABEL_WIDTH_PX = Math.round(LABEL_WIDTH_MM * MM_TO_PIXELS); // 1169 pixels (3.9")
+const LABEL_HEIGHT_PX = Math.round(LABEL_HEIGHT_MM * MM_TO_PIXELS); // 720 pixels (2.4")
 
 // Padding and spacing in pixels
-const PADDING_PX = Math.round(5 * MM_TO_PIXELS); // ~59 pixels
+const PADDING_LEFT_PX = Math.round(5 * MM_TO_PIXELS); // ~59 pixels
+const PADDING_RIGHT_PX = Math.round(2.5 * MM_TO_PIXELS); // ~30 pixels (half of left)
+const PADDING_TOP_PX = Math.round(5 * MM_TO_PIXELS); // ~59 pixels
+const PADDING_BOTTOM_PX = Math.round(5 * MM_TO_PIXELS); // ~59 pixels
 const TEXT_SPACING_PX = Math.round(3 * MM_TO_PIXELS); // ~35 pixels
 
 interface LabelDimensions {
   width: number;
   height: number;
-  padding: number;
+  paddingLeft: number;
+  paddingRight: number;
+  paddingTop: number;
+  paddingBottom: number;
   textSpacing: number;
 }
 
@@ -29,7 +35,10 @@ function getLabelDimensions(): LabelDimensions {
   return {
     width: LABEL_WIDTH_PX,
     height: LABEL_HEIGHT_PX,
-    padding: PADDING_PX,
+    paddingLeft: PADDING_LEFT_PX,
+    paddingRight: PADDING_RIGHT_PX,
+    paddingTop: PADDING_TOP_PX,
+    paddingBottom: PADDING_BOTTOM_PX,
     textSpacing: TEXT_SPACING_PX,
   };
 }
@@ -41,7 +50,6 @@ async function loadFont(fontFamily: string, fontUrl: string): Promise<boolean> {
     document.fonts.add(font);
     return true;
   } catch (error) {
-    console.warn(`Failed to load font ${fontFamily}:`, error);
     return false;
   }
 }
@@ -93,12 +101,23 @@ async function drawLabel(
   ctx.fillStyle = 'white';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  // Try to load Roboto font (similar to what PDF used)
-  const fontLoaded = await loadFont('Roboto', '/Roboto-Regular.ttf');
+  // Try to load Open Sans font (nicer than Roboto)
+  const fontLoaded = await loadFont('Open Sans', '/OpenSans-Regular.ttf');
 
-  // Generate QR code at appropriate size for label
-  // Convert QR size from mm to pixels
-  const qrSizePx = Math.round(settings.qrSize * MM_TO_PIXELS);
+  // Calculate available space for left and right sections
+  const availableWidth = canvas.width - dims.paddingLeft - dims.paddingRight;
+  const availableHeight = canvas.height - dims.paddingTop - dims.paddingBottom;
+
+  // Divide canvas: left 35% for QR code, right 65% for text
+  const leftSectionWidth = availableWidth * 0.35;
+  const rightSectionWidth = availableWidth * 0.65;
+
+  // QR code fills 75% of the available height - smaller
+  const qrSizePx = availableHeight * 0.75;
+  const qrX = dims.paddingLeft + (leftSectionWidth - qrSizePx) / 2; // Center horizontally in left section
+  const qrY = dims.paddingTop; // Position at top
+
+  // Generate QR code
   const qrDataUrl = await generateQRCode(row.url, settings.qrSize);
 
   // Draw QR code
@@ -109,43 +128,196 @@ async function drawLabel(
     qrImage.src = qrDataUrl;
   });
 
-  const qrX = dims.padding;
-  const qrY = dims.padding;
   ctx.drawImage(qrImage, qrX, qrY, qrSizePx, qrSizePx);
+
+  // Calculate scan text dimensions (will draw later)
+  const scanFontSize = Math.round(10 * MM_TO_PIXELS / 3); // ~39 pixels (increased from 8 to 10)
+  const scanFontFamily = fontLoaded ? 'Open Sans' : 'Arial';
+  const scanLine1 = 'zeskanuj,';
+  const scanLine2 = 'aby zobaczyć cenę';
+  const scanLineHeight = scanFontSize * 1.2;
+  const scanTextY = qrY + qrSizePx + Math.round(2 * MM_TO_PIXELS); // Below QR code with spacing
 
   // Draw optional border for debugging
   ctx.strokeStyle = '#cccccc';
   ctx.lineWidth = 1;
   ctx.strokeRect(0, 0, canvas.width, canvas.height);
 
-  // Text configuration
-  const textX = qrX + qrSizePx + dims.textSpacing;
-  const availableTextWidth = canvas.width - textX - dims.padding;
+  // Text configuration - right section with more spacing from QR code
+  const textX = dims.paddingLeft + leftSectionWidth + dims.textSpacing * 2; // Double spacing from QR code
+  const availableTextWidth = rightSectionWidth - dims.textSpacing * 2;
 
-  // Draw product name (bold, larger font)
+  // Ensure right section text doesn't overlap with QR + scan text
+  // Start right section text either at top or below scan text, whichever ensures no overlap
+  const rightSectionMinY = dims.paddingTop; // Start at top
+
+  // Extract data from rawData
+  const decor = row.rawData[2] || '';
+  const structure = row.rawData[3] || '';
+  const name = row.rawData[4] || '';
+  const description = row.rawData[11] || '';
+  const thickness = (row.rawData[13] || '').toString().trim();
+  const producer = row.rawData[15] || '';
+  const widthStr = row.rawData[10] || '';
+  const lengthStr = row.rawData[9] || '';
+
+  // Format widths: split by semicolon and add "mm" to each
+  const widths = widthStr.split(';').map(w => w.trim() + 'mm').filter(w => w !== 'mm').join(', ');
+  const lengths = lengthStr.split(';').map(l => l.trim() + 'mm').filter(l => l !== 'mm').join(', ');
+
+  // Font sizes - decreased by 2px
+  const titleFontSize = Math.round(16 * MM_TO_PIXELS / 3) - 2; // ~61 pixels
+  const labelFontSize = Math.round(11 * MM_TO_PIXELS / 3) - 2; // ~41 pixels
+  const valueFontSize = Math.round(11 * MM_TO_PIXELS / 3) - 2; // ~41 pixels
+
+  const fontFamily = fontLoaded ? 'Open Sans' : 'Arial';
+
+  let currentY = rightSectionMinY; // Start at the safe minimum Y position
+  const lineSpacing = Math.round(1.5 * MM_TO_PIXELS); // Reduced spacing between rows
+
+  // Draw product name (title) - handle long titles
   ctx.fillStyle = 'black';
-  const productNameFontSize = Math.round(12 * MM_TO_PIXELS / 3); // ~47 pixels (12pt at 300 DPI)
-  ctx.font = `${productNameFontSize}px ${fontLoaded ? 'Roboto' : 'Arial'}`;
+  let adjustedTitleFontSize = titleFontSize;
+  ctx.font = `${adjustedTitleFontSize}px ${fontFamily}`;
 
-  const productNameLines = wrapText(ctx, row.productName, availableTextWidth);
-  let currentY = qrY + productNameFontSize;
-  const lineHeight = productNameFontSize * 1.2;
+  // Check if title fits, if not reduce font size
+  let titleWidth = ctx.measureText(name).width;
+  while (titleWidth > availableTextWidth && adjustedTitleFontSize > labelFontSize) {
+    adjustedTitleFontSize -= 2;
+    ctx.font = `${adjustedTitleFontSize}px ${fontFamily}`;
+    titleWidth = ctx.measureText(name).width;
+  }
 
-  productNameLines.forEach((line, index) => {
-    ctx.fillText(line, textX, currentY + (index * lineHeight));
-  });
+  // If still too long after reducing font, wrap to multiple lines
+  if (titleWidth > availableTextWidth) {
+    const titleLines = wrapText(ctx, name, availableTextWidth);
+    titleLines.forEach((line, index) => {
+      ctx.fillText(line, textX, currentY + adjustedTitleFontSize + (index * adjustedTitleFontSize * 1.2));
+    });
+    currentY += adjustedTitleFontSize + titleLines.length * adjustedTitleFontSize * 1.2 + lineSpacing;
+  } else {
+    ctx.fillText(name, textX, currentY + adjustedTitleFontSize);
+    currentY += adjustedTitleFontSize + lineSpacing;
+  }
 
-  // Draw description (smaller, gray text)
-  const descriptionFontSize = Math.round(8 * MM_TO_PIXELS / 3); // ~31 pixels (8pt at 300 DPI)
-  ctx.font = `${descriptionFontSize}px ${fontLoaded ? 'Roboto' : 'Arial'}`;
-  ctx.fillStyle = '#666666';
+  // Draw decor and structure
+  ctx.font = `${valueFontSize}px ${fontFamily}`;
+  ctx.fillText(`${decor} ${structure}`, textX, currentY + valueFontSize);
+  // Match the total spacing from name->structure: we need the same total gap
+  // After name we add: adjustedTitleFontSize + lineSpacing
+  // After structure we need to add the same total to create equal visual spacing
+  currentY += adjustedTitleFontSize + lineSpacing;
 
-  const descriptionY = currentY + (productNameLines.length * lineHeight) + Math.round(2 * MM_TO_PIXELS);
-  const descriptionLines = wrapText(ctx, 'zeskanuj, aby poznać szczegóły i cenę', availableTextWidth);
+  // Table-like format for product details
+  ctx.font = `${labelFontSize}px ${fontFamily}`;
 
-  descriptionLines.forEach((line, index) => {
-    ctx.fillText(line, textX, descriptionY + (index * descriptionFontSize * 1.3));
-  });
+  // Description
+  if (description) {
+    ctx.fillStyle = '#333333';
+    ctx.font = `${labelFontSize}px ${fontFamily}`;
+    const descLines = wrapText(ctx, description, availableTextWidth);
+    descLines.forEach((line, index) => {
+      ctx.fillText(line, textX, currentY + labelFontSize + (index * labelFontSize * 1.2));
+    });
+    currentY += labelFontSize + descLines.length * labelFontSize * 1.2 + lineSpacing;
+  }
+
+  // Table-like layout: calculate label column width for alignment
+  ctx.font = `${labelFontSize}px ${fontFamily}`;
+  const labelColumnWidth = Math.max(
+    ctx.measureText('Producent:').width,
+    ctx.measureText('Grubość:').width,
+    ctx.measureText('Szerokości:').width,
+    ctx.measureText('Długości:').width
+  ) + Math.round(1 * MM_TO_PIXELS); // Add small spacing after label
+
+  const valueX = textX + labelColumnWidth;
+  const availableValueWidth = availableTextWidth - labelColumnWidth;
+
+  // Producer
+  if (producer) {
+    ctx.fillStyle = '#333333';
+    ctx.font = `${labelFontSize}px ${fontFamily}`;
+    ctx.fillText('Producent:', textX, currentY);
+    ctx.fillText(producer, valueX, currentY);
+    currentY += labelFontSize + lineSpacing * 0.6;
+  }
+
+  // Thickness
+  if (thickness !== '') {
+    ctx.fillStyle = '#333333';
+    ctx.font = `${labelFontSize}px ${fontFamily}`;
+    ctx.fillText('Grubość:', textX, currentY);
+    ctx.fillText(thickness + 'mm', valueX, currentY);
+    currentY += labelFontSize + lineSpacing * 0.6;
+  }
+
+  // Width
+  if (widths && widths !== '') {
+    ctx.fillStyle = '#333333';
+    ctx.font = `${labelFontSize}px ${fontFamily}`;
+
+    // Draw label on first line
+    ctx.fillText('Szerokości:', textX, currentY);
+
+    // Wrap width values if too long, first line starts after label
+    const widthLines = wrapText(ctx, widths, availableValueWidth);
+    widthLines.forEach((line, index) => {
+      if (index === 0) {
+        // First line: starts right after label
+        ctx.fillText(line, valueX, currentY);
+      } else {
+        // Wrapped lines: indent to align with first value
+        ctx.fillText(line, valueX, currentY + (index * labelFontSize * 1.1));
+      }
+    });
+    currentY += widthLines.length * labelFontSize * 1.1 + lineSpacing * 0.6;
+  }
+
+  // Length
+  if (lengths && lengths !== '') {
+    ctx.fillStyle = '#333333';
+    ctx.font = `${labelFontSize}px ${fontFamily}`;
+
+    // Draw label on first line
+    ctx.fillText('Długości:', textX, currentY);
+
+    // Wrap length values if too long, first line starts after label
+    const lengthLines = wrapText(ctx, lengths, availableValueWidth);
+    lengthLines.forEach((line, index) => {
+      if (index === 0) {
+        // First line: starts right after label
+        ctx.fillText(line, valueX, currentY);
+      } else {
+        // Wrapped lines: indent to align with first value
+        ctx.fillText(line, valueX, currentY + (index * labelFontSize * 1.1));
+      }
+    });
+    currentY += lengthLines.length * labelFontSize * 1.1 + lineSpacing;
+  }
+
+  // Draw scan instruction below QR code (after all other text to avoid overlap)
+  ctx.fillStyle = '#333333';
+  ctx.font = `${scanFontSize}px ${scanFontFamily}`;
+
+  const scanLine1Width = ctx.measureText(scanLine1).width;
+  const scanLine2Width = ctx.measureText(scanLine2).width;
+
+  // Ensure scan text stays within left section boundary
+  const maxScanTextWidth = leftSectionWidth - Math.round(1 * MM_TO_PIXELS); // Leave small margin
+  const scanTextMaxX = dims.paddingLeft + maxScanTextWidth;
+
+  // Center first line within left section, but ensure it doesn't overflow
+  let scanLine1X = qrX + (qrSizePx - scanLine1Width) / 2;
+  // Clamp to left section
+  scanLine1X = Math.max(dims.paddingLeft, Math.min(scanLine1X, scanTextMaxX - scanLine1Width));
+  ctx.fillText(scanLine1, scanLine1X, scanTextY);
+
+  // Center second line within left section, but ensure it doesn't overflow
+  let scanLine2X = qrX + (qrSizePx - scanLine2Width) / 2;
+  // Clamp to left section
+  scanLine2X = Math.max(dims.paddingLeft, Math.min(scanLine2X, scanTextMaxX - scanLine2Width));
+  ctx.fillText(scanLine2, scanLine2X, scanTextY + scanLineHeight);
 
   // Return the image as data URL
   return canvas.toDataURL('image/png');

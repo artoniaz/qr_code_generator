@@ -130,10 +130,6 @@ export async function generatePdf(
   // Try to load custom font for Polish character support
   const fontLoaded = await loadDejaVuFont(pdf);
 
-  if (!fontLoaded) {
-    console.warn('Font loading failed - Polish characters may not display correctly');
-  }
-
   const cardsPerPage = calculateCardsPerPage();
   const rowsPerPage = calculateRowsPerPage();
   const totalPages = Math.ceil(validRows.length / cardsPerPage);

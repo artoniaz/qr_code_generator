@@ -29,7 +29,6 @@ function App() {
       setCsvRows(rowsWithDuplicates);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to parse CSV file');
-      console.error('CSV parsing error:', err);
     } finally {
       setIsLoading(false);
     }

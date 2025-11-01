@@ -8,12 +8,9 @@ export async function loadDejaVuFont(pdf: jsPDF): Promise<boolean> {
   if (fontLoaded) return true;
 
   try {
-    console.log('Loading Roboto font...');
-
     const response = await fetch('/Roboto-Regular.ttf');
 
     if (!response.ok) {
-      console.error('Font file not found:', response.status);
       return false;
     }
 
@@ -39,10 +36,8 @@ export async function loadDejaVuFont(pdf: jsPDF): Promise<boolean> {
     pdf.setFont('Roboto', 'normal');
 
     fontLoaded = true;
-    console.log('Roboto font loaded successfully - Polish characters supported!');
     return true;
   } catch (error) {
-    console.error('Failed to load Roboto font:', error);
     return false;
   }
 }
