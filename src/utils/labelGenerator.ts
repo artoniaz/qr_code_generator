@@ -1,5 +1,7 @@
 import type { CSVRow, AppSettings } from '../types.ts';
 import { generateQRCode } from './qrGenerator.ts';
+import JSZip from 'jszip';
+import { saveAs } from 'file-saver';
 
 // Brother QL label printer specifications
 // 62mm × 100mm label at 300 DPI
@@ -161,7 +163,10 @@ export async function generateLabels(
     throw new Error('No valid rows to generate labels');
   }
 
-  // Generate each label and download
+  // Create a new ZIP file
+  const zip = new JSZip();
+
+  // Generate each label and add to ZIP
   for (let i = 0; i < validRows.length; i++) {
     if (onProgress) {
       onProgress(i + 1, validRows.length);
@@ -170,20 +175,28 @@ export async function generateLabels(
     const row = validRows[i];
     const labelDataUrl = await drawLabel(row, settings);
 
-    // Create download link
-    const link = document.createElement('a');
+    // Convert data URL to blob
+    const base64Data = labelDataUrl.split(',')[1];
+    const binaryData = atob(base64Data);
+    const arrayBuffer = new Uint8Array(binaryData.length);
+    for (let j = 0; j < binaryData.length; j++) {
+      arrayBuffer[j] = binaryData.charCodeAt(j);
+    }
+
+    // Create safe file name
     const safeFileName = row.productName
       .replace(/[^a-z0-9]/gi, '_')
       .substring(0, 50);
-    link.download = `label_${i + 1}_${safeFileName}.png`;
-    link.href = labelDataUrl;
-    link.click();
+    const fileName = `label_${i + 1}_${safeFileName}.png`;
 
-    // Small delay between downloads to avoid browser blocking
-    if (i < validRows.length - 1) {
-      await new Promise(resolve => setTimeout(resolve, 100));
-    }
+    // Add image to ZIP
+    zip.file(fileName, arrayBuffer, { binary: true });
   }
+
+  // Generate and download ZIP file
+  const zipBlob = await zip.generateAsync({ type: 'blob' });
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-').substring(0, 19);
+  saveAs(zipBlob, `labels_${timestamp}.zip`);
 }
 
 // Export function to generate a single label (for preview)

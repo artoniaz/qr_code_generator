@@ -14,6 +14,7 @@
     "file-saver": "^2.0.5",
     "jspdf": "^3.0.3",
     "jspdf-font": "^1.0.7",
+    "jszip": "^3.10.1",
     "papaparse": "^5.5.3",
     "qrcode": "^1.5.4",
     "react": "^19.1.1",
@@ -22,6 +23,7 @@
   "devDependencies": {
     "@eslint/js": "^9.36.0",
     "@types/file-saver": "^2.0.7",
+    "@types/jszip": "^3.4.0",
     "@types/node": "^24.6.0",
     "@types/papaparse": "^5.3.16",
     "@types/qrcode": "^1.5.5",
