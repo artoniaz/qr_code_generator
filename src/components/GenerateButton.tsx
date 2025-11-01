@@ -43,13 +43,23 @@ export const GenerateButton: React.FC<GenerateButtonProps> = ({ rows, settings }
         onClick={handleGenerate}
         disabled={isGenerating || validRows.length === 0}
       >
-        {isGenerating ? (
-          <span>
-            Generowanie... {progress.total > 0 && `(Etykieta ${progress.current}/${progress.total})`}
+        <div className="button-content">
+          {isGenerating && (
+            <div className="spinner"></div>
+          )}
+          <span className="button-text">
+            {isGenerating ? (
+              <>
+                Generowanie...
+                {progress.total > 0 && (
+                  <span className="progress-text"> ({progress.current}/{progress.total})</span>
+                )}
+              </>
+            ) : (
+              <>Generuj etykiety ({validRows.length} etykiet)</>
+            )}
           </span>
-        ) : (
-          <span>Generuj etykiety ({validRows.length} etykiet)</span>
-        )}
+        </div>
       </button>
 
       {error && (

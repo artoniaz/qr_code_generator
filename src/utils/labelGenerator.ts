@@ -43,15 +43,36 @@ function getLabelDimensions(): LabelDimensions {
   };
 }
 
+// Cache for font loading state
+let fontLoadingPromise: Promise<boolean> | null = null;
+
 async function loadFont(fontFamily: string, fontUrl: string): Promise<boolean> {
-  try {
-    const font = new FontFace(fontFamily, `url(${fontUrl})`);
-    await font.load();
-    document.fonts.add(font);
-    return true;
-  } catch (error) {
-    return false;
+  // Return cached promise if font is already being loaded or loaded
+  if (fontLoadingPromise) {
+    return fontLoadingPromise;
   }
+
+  fontLoadingPromise = (async () => {
+    try {
+      // Check if font is already loaded
+      const fontExists = Array.from(document.fonts).some(
+        f => f.family === fontFamily
+      );
+
+      if (fontExists) {
+        return true;
+      }
+
+      const font = new FontFace(fontFamily, `url(${fontUrl})`);
+      await font.load();
+      document.fonts.add(font);
+      return true;
+    } catch (error) {
+      return false;
+    }
+  })();
+
+  return fontLoadingPromise;
 }
 
 function wrapText(
@@ -101,8 +122,8 @@ async function drawLabel(
   ctx.fillStyle = 'white';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  // Try to load Open Sans font (nicer than Roboto)
-  const fontLoaded = await loadFont('Open Sans', '/OpenSans-Regular.ttf');
+  // Use Arial font (system font, no loading needed)
+  const fontLoaded = false;
 
   // Calculate available space for left and right sections
   const availableWidth = canvas.width - dims.paddingLeft - dims.paddingRight;
@@ -132,7 +153,7 @@ async function drawLabel(
 
   // Calculate scan text dimensions (will draw later)
   const scanFontSize = Math.round(10 * MM_TO_PIXELS / 3); // ~39 pixels (increased from 8 to 10)
-  const scanFontFamily = fontLoaded ? 'Open Sans' : 'Arial';
+  const scanFontFamily = 'Arial';
   const scanLine1 = 'zeskanuj,';
   const scanLine2 = 'aby zobaczyć cenę';
   const scanLineHeight = scanFontSize * 1.2;
@@ -206,7 +227,7 @@ async function drawLabel(
   const labelFontSize = Math.round(11 * MM_TO_PIXELS / 3) - 2; // ~41 pixels
   const valueFontSize = Math.round(11 * MM_TO_PIXELS / 3) - 2; // ~41 pixels
 
-  const fontFamily = fontLoaded ? 'Open Sans' : 'Arial';
+  const fontFamily = 'Arial';
 
   let currentY = rightSectionMinY; // Start at the safe minimum Y position
   const lineSpacing = Math.round(1.5 * MM_TO_PIXELS); // Reduced spacing between rows

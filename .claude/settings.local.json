@@ -21,7 +21,10 @@
       "Bash(node:*)",
       "Bash(npm uninstall:*)",
       "Bash(unzip:*)",
-      "Bash(npm run build:*)"
+      "Bash(npm run build:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git rm:*)"
     ],
     "deny": [],
     "ask": []
