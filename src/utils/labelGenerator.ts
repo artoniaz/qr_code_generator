@@ -43,37 +43,7 @@ function getLabelDimensions(): LabelDimensions {
   };
 }
 
-// Cache for font loading state
-let fontLoadingPromise: Promise<boolean> | null = null;
-
-async function loadFont(fontFamily: string, fontUrl: string): Promise<boolean> {
-  // Return cached promise if font is already being loaded or loaded
-  if (fontLoadingPromise) {
-    return fontLoadingPromise;
-  }
-
-  fontLoadingPromise = (async () => {
-    try {
-      // Check if font is already loaded
-      const fontExists = Array.from(document.fonts).some(
-        f => f.family === fontFamily
-      );
-
-      if (fontExists) {
-        return true;
-      }
-
-      const font = new FontFace(fontFamily, `url(${fontUrl})`);
-      await font.load();
-      document.fonts.add(font);
-      return true;
-    } catch (error) {
-      return false;
-    }
-  })();
-
-  return fontLoadingPromise;
-}
+// Font loading functionality removed - using system Arial font only
 
 function wrapText(
   ctx: CanvasRenderingContext2D,
@@ -121,9 +91,6 @@ async function drawLabel(
   // Fill with white background
   ctx.fillStyle = 'white';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-  // Use Arial font (system font, no loading needed)
-  const fontLoaded = false;
 
   // Calculate available space for left and right sections
   const availableWidth = canvas.width - dims.paddingLeft - dims.paddingRight;
