@@ -87,7 +87,9 @@ async function drawCard(
   const lineHeight = 12 * 1.2 * 0.352778; // fontSize * lineHeightFactor * mm conversion
   const titleHeight = lines.length * lineHeight;
 
-  // Draw description - positioned below product name with dynamic spacing
+  let currentY = productNameY + titleHeight + 2;
+
+  // Set up for secondary text
   if (fontLoaded) {
     pdf.setFont('Roboto', 'normal');
   } else {
@@ -95,13 +97,49 @@ async function drawCard(
   }
   pdf.setFontSize(8);
   pdf.setTextColor(102, 102, 102);
-  const descriptionY = productNameY + titleHeight + 2; // Position below title with 2mm gap
 
-  const descLines = pdf.splitTextToSize('zeskanuj, aby poznać szczegóły i cenę', availableTextWidth);
-  pdf.text(descLines, textX, descriptionY, {
-    lineHeightFactor: 1.3,
-    align: 'left'
-  });
+  // If this is a płyty product type and has card data, show additional fields
+  if (row.cardData && row.productType === 'plyty') {
+    const smallLineHeight = 8 * 1.3 * 0.352778;
+
+    // Show decor and structure (e.g., "0110 SM")
+    if (row.cardData.decor && row.cardData.structure) {
+      const decorStructure = `${row.cardData.decor} ${row.cardData.structure}`;
+      pdf.text(decorStructure, textX, currentY);
+      currentY += smallLineHeight;
+    }
+
+    // Show description (e.g., "Płyta laminowana")
+    if (row.cardData.description) {
+      pdf.text(row.cardData.description, textX, currentY);
+      currentY += smallLineHeight;
+    }
+
+    // Show producer with label (e.g., "Producent: Kronospan")
+    if (row.cardData.producer) {
+      pdf.text(`Producent: ${row.cardData.producer}`, textX, currentY);
+      currentY += smallLineHeight;
+    }
+
+    // Show thickness with label (e.g., "Grubość: 18mm")
+    if (row.cardData.thickness) {
+      pdf.text(`Grubość: ${row.cardData.thickness}mm`, textX, currentY);
+      currentY += smallLineHeight;
+    }
+
+    // Show dimensions with label (e.g., "Wymiary: 2800mm x 2070mm")
+    if (row.cardData.dimensions) {
+      pdf.text(`Wymiary: ${row.cardData.dimensions}mm`, textX, currentY);
+      currentY += smallLineHeight;
+    }
+  } else {
+    // Default message for other product types
+    const descLines = pdf.splitTextToSize('zeskanuj, aby poznać szczegóły i cenę', availableTextWidth);
+    pdf.text(descLines, textX, currentY, {
+      lineHeightFactor: 1.3,
+      align: 'left'
+    });
+  }
 
   // Reset text color
   pdf.setTextColor(0, 0, 0);

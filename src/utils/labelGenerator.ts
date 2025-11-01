@@ -151,19 +151,55 @@ async function drawLabel(
   // Start right section text either at top or below scan text, whichever ensures no overlap
   const rightSectionMinY = dims.paddingTop; // Start at top
 
-  // Extract data from rawData
-  const decor = row.rawData[2] || '';
-  const structure = row.rawData[3] || '';
-  const name = row.rawData[4] || '';
-  const description = row.rawData[11] || '';
-  const thickness = (row.rawData[13] || '').toString().trim();
-  const producer = row.rawData[15] || '';
-  const widthStr = row.rawData[10] || '';
-  const lengthStr = row.rawData[9] || '';
+  // Extract data based on product type
+  let decor: string;
+  let structure: string;
+  let name: string;
+  let description: string;
+  let thickness: string;
+  let producer: string;
+  let widths: string;
+  let lengths: string;
 
-  // Format widths: split by semicolon and add "mm" to each
-  const widths = widthStr.split(';').map(w => w.trim() + 'mm').filter(w => w !== 'mm').join(', ');
-  const lengths = lengthStr.split(';').map(l => l.trim() + 'mm').filter(l => l !== 'mm').join(', ');
+  if (row.productType === 'plyty' && row.cardData) {
+    // For płyty, use cardData
+    decor = row.cardData.decor || '';
+    structure = row.cardData.structure || '';
+    name = row.productName; // Already formatted
+    description = row.cardData.description || '';
+    thickness = row.cardData.thickness || '';
+    producer = row.cardData.producer || '';
+
+    // For płyty, dimensions are stored as "height x width"
+    const dimensions = row.cardData.dimensions || '';
+    if (dimensions) {
+      const parts = dimensions.split('x').map(p => p.trim());
+      if (parts.length === 2) {
+        widths = parts[1] + 'mm'; // width
+        lengths = parts[0] + 'mm'; // height
+      } else {
+        widths = '';
+        lengths = '';
+      }
+    } else {
+      widths = '';
+      lengths = '';
+    }
+  } else {
+    // For blaty (worktops), use rawData
+    decor = row.rawData[2] || '';
+    structure = row.rawData[3] || '';
+    name = row.rawData[4] || '';
+    description = row.rawData[11] || '';
+    thickness = (row.rawData[13] || '').toString().trim();
+    producer = row.rawData[15] || '';
+    const widthStr = row.rawData[10] || '';
+    const lengthStr = row.rawData[9] || '';
+
+    // Format widths: split by semicolon and add "mm" to each
+    widths = widthStr.split(';').map(w => w.trim() + 'mm').filter(w => w !== 'mm').join(', ');
+    lengths = lengthStr.split(';').map(l => l.trim() + 'mm').filter(l => l !== 'mm').join(', ');
+  }
 
   // Font sizes - decreased by 2px
   const titleFontSize = Math.round(16 * MM_TO_PIXELS / 3) - 2; // ~61 pixels
@@ -224,12 +260,23 @@ async function drawLabel(
 
   // Table-like layout: calculate label column width for alignment
   ctx.font = `${labelFontSize}px ${fontFamily}`;
-  const labelColumnWidth = Math.max(
-    ctx.measureText('Producent:').width,
-    ctx.measureText('Grubość:').width,
-    ctx.measureText('Szerokości:').width,
-    ctx.measureText('Długości:').width
-  ) + Math.round(1 * MM_TO_PIXELS); // Add small spacing after label
+
+  // Calculate label column width based on product type
+  let labelColumnWidth: number;
+  if (row.productType === 'plyty') {
+    labelColumnWidth = Math.max(
+      ctx.measureText('Producent:').width,
+      ctx.measureText('Grubość:').width,
+      ctx.measureText('Wymiary:').width
+    ) + Math.round(1 * MM_TO_PIXELS);
+  } else {
+    labelColumnWidth = Math.max(
+      ctx.measureText('Producent:').width,
+      ctx.measureText('Grubość:').width,
+      ctx.measureText('Szerokości:').width,
+      ctx.measureText('Długości:').width
+    ) + Math.round(1 * MM_TO_PIXELS);
+  }
 
   const valueX = textX + labelColumnWidth;
   const availableValueWidth = availableTextWidth - labelColumnWidth;
@@ -252,48 +299,60 @@ async function drawLabel(
     currentY += labelFontSize + lineSpacing * 0.6;
   }
 
-  // Width
-  if (widths && widths !== '') {
-    ctx.fillStyle = '#333333';
-    ctx.font = `${labelFontSize}px ${fontFamily}`;
+  // For płyty: show as "Wymiary: height x width"
+  if (row.productType === 'plyty') {
+    if (lengths && widths) {
+      ctx.fillStyle = '#333333';
+      ctx.font = `${labelFontSize}px ${fontFamily}`;
+      ctx.fillText('Wymiary:', textX, currentY);
+      ctx.fillText(`${lengths} x ${widths}`, valueX, currentY);
+      currentY += labelFontSize + lineSpacing;
+    }
+  } else {
+    // For blaty: show as separate "Szerokości" and "Długości"
+    // Width
+    if (widths && widths !== '') {
+      ctx.fillStyle = '#333333';
+      ctx.font = `${labelFontSize}px ${fontFamily}`;
 
-    // Draw label on first line
-    ctx.fillText('Szerokości:', textX, currentY);
+      // Draw label on first line
+      ctx.fillText('Szerokości:', textX, currentY);
 
-    // Wrap width values if too long, first line starts after label
-    const widthLines = wrapText(ctx, widths, availableValueWidth);
-    widthLines.forEach((line, index) => {
-      if (index === 0) {
-        // First line: starts right after label
-        ctx.fillText(line, valueX, currentY);
-      } else {
-        // Wrapped lines: indent to align with first value
-        ctx.fillText(line, valueX, currentY + (index * labelFontSize * 1.1));
-      }
-    });
-    currentY += widthLines.length * labelFontSize * 1.1 + lineSpacing * 0.6;
-  }
+      // Wrap width values if too long, first line starts after label
+      const widthLines = wrapText(ctx, widths, availableValueWidth);
+      widthLines.forEach((line, index) => {
+        if (index === 0) {
+          // First line: starts right after label
+          ctx.fillText(line, valueX, currentY);
+        } else {
+          // Wrapped lines: indent to align with first value
+          ctx.fillText(line, valueX, currentY + (index * labelFontSize * 1.1));
+        }
+      });
+      currentY += widthLines.length * labelFontSize * 1.1 + lineSpacing * 0.6;
+    }
 
-  // Length
-  if (lengths && lengths !== '') {
-    ctx.fillStyle = '#333333';
-    ctx.font = `${labelFontSize}px ${fontFamily}`;
+    // Length
+    if (lengths && lengths !== '') {
+      ctx.fillStyle = '#333333';
+      ctx.font = `${labelFontSize}px ${fontFamily}`;
 
-    // Draw label on first line
-    ctx.fillText('Długości:', textX, currentY);
+      // Draw label on first line
+      ctx.fillText('Długości:', textX, currentY);
 
-    // Wrap length values if too long, first line starts after label
-    const lengthLines = wrapText(ctx, lengths, availableValueWidth);
-    lengthLines.forEach((line, index) => {
-      if (index === 0) {
-        // First line: starts right after label
-        ctx.fillText(line, valueX, currentY);
-      } else {
-        // Wrapped lines: indent to align with first value
-        ctx.fillText(line, valueX, currentY + (index * labelFontSize * 1.1));
-      }
-    });
-    currentY += lengthLines.length * labelFontSize * 1.1 + lineSpacing;
+      // Wrap length values if too long, first line starts after label
+      const lengthLines = wrapText(ctx, lengths, availableValueWidth);
+      lengthLines.forEach((line, index) => {
+        if (index === 0) {
+          // First line: starts right after label
+          ctx.fillText(line, valueX, currentY);
+        } else {
+          // Wrapped lines: indent to align with first value
+          ctx.fillText(line, valueX, currentY + (index * labelFontSize * 1.1));
+        }
+      });
+      currentY += lengthLines.length * labelFontSize * 1.1 + lineSpacing;
+    }
   }
 
   // Draw scan instruction below QR code (after all other text to avoid overlap)
@@ -355,9 +414,10 @@ export async function generateLabels(
       arrayBuffer[j] = binaryData.charCodeAt(j);
     }
 
-    // Create safe file name
+    // Create safe file name - preserve Polish characters
     const safeFileName = row.productName
-      .replace(/[^a-z0-9]/gi, '_')
+      .replace(/[<>:"/\\|?*]/g, '_') // Only remove characters that are invalid in filenames
+      .replace(/\s+/g, '_') // Replace spaces with underscores
       .substring(0, 50);
     const fileName = `label_${i + 1}_${safeFileName}.png`;
 

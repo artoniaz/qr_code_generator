@@ -8,43 +8,77 @@ export interface ProductTypeConfig {
     colorNameIndex?: number;   // Color name field
     urlIndex: number;          // URL field (required)
     idIndex?: number;          // ID field
+    decorIndex?: number;       // Decor code field
+    structureIndex?: number;   // Structure field
+    descriptionIndex?: number; // Description field
+    thicknessIndex?: number;   // Thickness field
+    producerIndex?: number;    // Producer field
+    heightIndex?: number;      // Height field (for płyty)
+    widthIndex?: number;       // Width field (for płyty)
   };
   // Product name formatting function
   formatProductName: (row: string[]) => string;
+  // Extract additional data for card generation
+  getCardData?: (row: string[]) => {
+    decor?: string;
+    structure?: string;
+    description?: string;
+    thickness?: string;
+    producer?: string;
+    dimensions?: string;
+  };
 }
 
 export const PRODUCT_TYPES: Record<string, ProductTypeConfig> = {
   plyty: {
     id: 'plyty',
     name: 'Płyty',
-    description: 'Aktualny format: Nazwa produktu (indeks 1), Kolor (indeks 4), URL (indeks 5)',
+    description: 'Format płyt: Kod (indeks 2), Struktura (indeks 3), Nazwa (indeks 4), URL (indeks 5)',
     fields: {
-      productNameIndex: 1,
-      colorNameIndex: 4,
+      productNameIndex: 4,    // name column
+      colorNameIndex: 4,      // same as name
       urlIndex: 5,
-      idIndex: 0
+      idIndex: 0,
+      decorIndex: 2,          // decor code (e.g., "0110")
+      structureIndex: 3,      // structure (e.g., "SM")
+      descriptionIndex: 12,   // description (e.g., "Płyta laminowana")
+      thicknessIndex: 15,     // thickness (e.g., "18")
+      producerIndex: 16,      // producer (e.g., "Kronospan")
+      heightIndex: 10,        // height (e.g., "2800")
+      widthIndex: 11          // width (e.g., "2070")
     },
     formatProductName: (row: string[]) => {
-      const rawProductName = row[1] || '';
-      const colorName = row[4] || '';
+      const name = row[4] || '';      // Column 4: name (e.g., "BIAŁY KORPUSOWY")
 
-      if (rawProductName && colorName) {
-        const parts = rawProductName.split('_');
-        if (parts.length >= 2) {
-          const code = parts[0]; // e.g., "0110"
-          const type = parts[1]; // e.g., "SM"
+      if (name) {
+        // Capitalize first letter of each word in name, rest lowercase
+        const formattedName = name
+          .split(' ')
+          .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+          .join(' ');
 
-          // Capitalize first letter of each word in color name, rest lowercase
-          const formattedColor = colorName
-            .split(' ')
-            .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-            .join(' ');
-
-          return `${formattedColor} ${code} ${type}`;
-        }
+        return formattedName;
       }
 
-      return rawProductName;
+      return name || row[1] || '';
+    },
+    getCardData: (row: string[]) => {
+      const decor = row[2] || '';
+      const structure = row[3] || '';
+      const description = row[12] || '';
+      const thickness = row[15] || '';
+      const producer = row[16] || '';
+      const height = row[10] || '';
+      const width = row[11] || '';
+
+      return {
+        decor,
+        structure,
+        description,
+        thickness,
+        producer,
+        dimensions: height && width ? `${height} x ${width}` : ''
+      };
     }
   },
 

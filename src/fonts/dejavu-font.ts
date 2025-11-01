@@ -11,6 +11,7 @@ export async function loadDejaVuFont(pdf: jsPDF): Promise<boolean> {
     const response = await fetch('/Roboto-Regular.ttf');
 
     if (!response.ok) {
+      console.warn('Could not load Roboto font, using default font');
       return false;
     }
 
@@ -38,6 +39,7 @@ export async function loadDejaVuFont(pdf: jsPDF): Promise<boolean> {
     fontLoaded = true;
     return true;
   } catch (error) {
+    console.warn('Error loading Roboto font, using default font:', error);
     return false;
   }
 }

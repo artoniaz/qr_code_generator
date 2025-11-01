@@ -7,6 +7,15 @@ export interface CSVRow {
   errors: string[];
   isExcluded?: boolean;
   productType?: string; // Product type used for this row
+  // Additional card data (populated based on product type)
+  cardData?: {
+    decor?: string;
+    structure?: string;
+    description?: string;
+    thickness?: string;
+    producer?: string;
+    dimensions?: string;
+  };
 }
 
 export interface AppSettings {

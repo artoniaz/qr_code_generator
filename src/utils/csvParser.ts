@@ -42,6 +42,9 @@ export function parseCSVRow(row: string[], index: number, productTypeId: string 
   const idIndex = productTypeConfig.fields.idIndex ?? 0;
   const id = row[idIndex] || `row-${index}`;
 
+  // Get additional card data if the product type provides a getCardData function
+  const cardData = productTypeConfig.getCardData ? productTypeConfig.getCardData(row) : undefined;
+
   return {
     id,
     productName,
@@ -50,7 +53,8 @@ export function parseCSVRow(row: string[], index: number, productTypeId: string 
     isValid: errors.length === 0,
     errors,
     isExcluded: false,
-    productType: productTypeId
+    productType: productTypeId,
+    cardData
   };
 }
 
