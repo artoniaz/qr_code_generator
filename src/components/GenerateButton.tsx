@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import type { CSVRow, AppSettings } from '../types.ts';
-import { generatePdf } from '../utils/pdfGenerator.ts';
+import { generateLabels } from '../utils/labelGenerator.ts';
 
 interface GenerateButtonProps {
   rows: CSVRow[];
@@ -16,7 +16,7 @@ export const GenerateButton: React.FC<GenerateButtonProps> = ({ rows, settings }
 
   const handleGenerate = async () => {
     if (validRows.length === 0) {
-      setError('Brak poprawnych wierszy do wygenerowania dokumentu');
+      setError('Brak poprawnych wierszy do wygenerowania etykiet');
       return;
     }
 
@@ -25,11 +25,11 @@ export const GenerateButton: React.FC<GenerateButtonProps> = ({ rows, settings }
     setProgress({ current: 0, total: 0 });
 
     try {
-      await generatePdf(rows, settings, (current, total) => {
+      await generateLabels(rows, settings, (current: number, total: number) => {
         setProgress({ current, total });
       });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Nie udało się wygenerować dokumentu');
+      setError(err instanceof Error ? err.message : 'Nie udało się wygenerować etykiet');
       console.error('Generation error:', err);
     } finally {
       setIsGenerating(false);
@@ -46,10 +46,10 @@ export const GenerateButton: React.FC<GenerateButtonProps> = ({ rows, settings }
       >
         {isGenerating ? (
           <span>
-            Generowanie... {progress.total > 0 && `(Strona ${progress.current}/${progress.total})`}
+            Generowanie... {progress.total > 0 && `(Etykieta ${progress.current}/${progress.total})`}
           </span>
         ) : (
-          <span>Generuj PDF ({validRows.length} kart)</span>
+          <span>Generuj etykiety ({validRows.length} etykiet)</span>
         )}
       </button>
 
