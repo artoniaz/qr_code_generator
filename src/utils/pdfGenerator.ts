@@ -134,7 +134,13 @@ async function drawCard(
     }
   } else {
     // Default message for other product types
-    const descLines = pdf.splitTextToSize('zeskanuj, aby poznać szczegóły i cenę', availableTextWidth);
+    // Make the text bold
+    if (fontLoaded) {
+      pdf.setFont('Roboto', 'bold');
+    } else {
+      pdf.setFont('helvetica', 'bold');
+    }
+    const descLines = pdf.splitTextToSize('Zeskanuj, aby zobaczyć cenę', availableTextWidth);
     pdf.text(descLines, textX, currentY, {
       lineHeightFactor: 1.3,
       align: 'left'
