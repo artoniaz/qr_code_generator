@@ -148,6 +148,7 @@ async function drawLabel(
   let producer: string;
   let widths: string;
   let lengths: string;
+  let millingType: string = '';
 
   if (row.productType === 'fronty' && row.cardData) {
     // For fronty, use cardData with specific mapping
@@ -159,6 +160,7 @@ async function drawLabel(
     producer = row.cardData.producer || '';
     widths = row.cardData.dimensions || ''; // czas_oczekiwania
     lengths = '';
+    millingType = row.cardData.millingType || ''; // frez_typ
   } else if (row.productType === 'plyty' && row.cardData) {
     // For płyty, use cardData
     decor = row.cardData.decor || '';
@@ -266,6 +268,7 @@ async function drawLabel(
       ctx.measureText('Typ:').width,
       ctx.measureText('Kolor:').width,
       ctx.measureText('Informacje:').width,
+      ctx.measureText('Frezowanie:').width,
       ctx.measureText('oczekiwania:').width // "Czas" will be on separate line
     ) + Math.round(1 * MM_TO_PIXELS);
   } else if (row.productType === 'plyty') {
@@ -326,7 +329,7 @@ async function drawLabel(
       currentY += (kolorLines.length - 1) * labelFontSize * 1.1 + lineSpacing * 0.6;
     }
 
-    // Informacje (thickness = info)
+    // Informacje (thickness = info) - only show if info exists
     if (thickness) {
       ctx.fillStyle = '#333333';
       ctx.font = `${labelFontSize}px ${fontFamily}`;
@@ -341,6 +344,23 @@ async function drawLabel(
         }
       });
       currentY += (infoLines.length - 1) * labelFontSize * 1.1 + lineSpacing * 0.6;
+    }
+
+    // Frezowanie (millingType = frez_typ)
+    if (millingType) {
+      ctx.fillStyle = '#333333';
+      ctx.font = `${labelFontSize}px ${fontFamily}`;
+      currentY += labelFontSize;
+      ctx.fillText('Frezowanie:', textX, currentY);
+      const frezLines = wrapText(ctx, millingType, availableValueWidth);
+      frezLines.forEach((line, index) => {
+        if (index === 0) {
+          ctx.fillText(line, valueX, currentY);
+        } else {
+          ctx.fillText(line, valueX, currentY + (index * labelFontSize * 1.1));
+        }
+      });
+      currentY += (frezLines.length - 1) * labelFontSize * 1.1 + lineSpacing * 0.6;
     }
 
     // Czas oczekiwania (widths = czas_oczekiwania)

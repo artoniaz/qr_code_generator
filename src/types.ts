@@ -15,6 +15,7 @@ export interface CSVRow {
     thickness?: string;
     producer?: string;
     dimensions?: string;
+    millingType?: string; // frez_typ for fronty
   };
 }
 

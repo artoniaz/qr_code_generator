@@ -26,6 +26,7 @@ export interface ProductTypeConfig {
     thickness?: string;
     producer?: string;
     dimensions?: string;
+    millingType?: string;
   };
 }
 
@@ -115,15 +116,15 @@ export const PRODUCT_TYPES: Record<string, ProductTypeConfig> = {
   fronty: {
     id: 'fronty',
     name: 'Fronty',
-    description: 'Format frontów: Producent (indeks 1), Typ frontu (indeks 2), Kolor (indeks 3), Informacje (indeks 4), Czas oczekiwania (indeks 5), URL (indeks 7)',
+    description: 'Format frontów: Producent (indeks 1), Typ frontu (indeks 2), Kolor (indeks 3), Informacje (indeks 4), Typ frezowania (indeks 5), Czas oczekiwania (indeks 6), URL (indeks 8)',
     fields: {
-      urlIndex: 7,
+      urlIndex: 8,
       idIndex: 0,
       producerIndex: 1,
       structureIndex: 2,  // front_typ
       colorNameIndex: 3,  // kolor
       descriptionIndex: 4, // info
-      thicknessIndex: 5    // czas_oczekiwania (reusing this field for waiting time)
+      thicknessIndex: 6    // czas_oczekiwania (reusing this field for waiting time)
     },
     formatProductName: (_row: string[]) => {
       // Always return "Front meblowy" for fronty
@@ -134,13 +135,15 @@ export const PRODUCT_TYPES: Record<string, ProductTypeConfig> = {
       const frontTyp = row[2] || '';
       const kolor = row[3] || '';
       const info = row[4] || '';
-      const czasOczekiwania = row[5] || '';
+      const frezTyp = row[5] || '';
+      const czasOczekiwania = row[6] || '';
 
       return {
         producer,
         structure: frontTyp,
         description: kolor,
-        thickness: info,
+        thickness: info, // info field - only shown if exists
+        millingType: frezTyp, // frez_typ field - shown separately
         dimensions: czasOczekiwania
       };
     }
