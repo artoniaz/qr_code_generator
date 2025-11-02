@@ -110,6 +110,40 @@ export const PRODUCT_TYPES: Record<string, ProductTypeConfig> = {
       // Fallback to raw product name if any field is missing
       return row[1] || '';
     }
+  },
+
+  fronty: {
+    id: 'fronty',
+    name: 'Fronty',
+    description: 'Format frontów: Producent (indeks 1), Typ frontu (indeks 2), Kolor (indeks 3), Informacje (indeks 4), Czas oczekiwania (indeks 5), URL (indeks 7)',
+    fields: {
+      urlIndex: 7,
+      idIndex: 0,
+      producerIndex: 1,
+      structureIndex: 2,  // front_typ
+      colorNameIndex: 3,  // kolor
+      descriptionIndex: 4, // info
+      thicknessIndex: 5    // czas_oczekiwania (reusing this field for waiting time)
+    },
+    formatProductName: (_row: string[]) => {
+      // Always return "Front meblowy" for fronty
+      return 'Front meblowy';
+    },
+    getCardData: (row: string[]) => {
+      const producer = row[1] || '';
+      const frontTyp = row[2] || '';
+      const kolor = row[3] || '';
+      const info = row[4] || '';
+      const czasOczekiwania = row[5] || '';
+
+      return {
+        producer,
+        structure: frontTyp,
+        description: kolor,
+        thickness: info,
+        dimensions: czasOczekiwania
+      };
+    }
   }
 };
 

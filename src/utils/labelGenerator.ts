@@ -149,7 +149,17 @@ async function drawLabel(
   let widths: string;
   let lengths: string;
 
-  if (row.productType === 'plyty' && row.cardData) {
+  if (row.productType === 'fronty' && row.cardData) {
+    // For fronty, use cardData with specific mapping
+    decor = ''; // No decor for fronty
+    structure = row.cardData.structure || ''; // front_typ
+    name = row.productName; // "Front meblowy"
+    description = row.cardData.description || ''; // kolor
+    thickness = row.cardData.thickness || ''; // info
+    producer = row.cardData.producer || '';
+    widths = row.cardData.dimensions || ''; // czas_oczekiwania
+    lengths = '';
+  } else if (row.productType === 'plyty' && row.cardData) {
     // For płyty, use cardData
     decor = row.cardData.decor || '';
     structure = row.cardData.structure || '';
@@ -218,25 +228,24 @@ async function drawLabel(
     titleLines.forEach((line, index) => {
       ctx.fillText(line, textX, currentY + adjustedTitleFontSize + (index * adjustedTitleFontSize * 1.2));
     });
-    currentY += adjustedTitleFontSize + titleLines.length * adjustedTitleFontSize * 1.2 + lineSpacing;
+    currentY += titleLines.length * adjustedTitleFontSize * 1.2 + lineSpacing;
   } else {
     ctx.fillText(name, textX, currentY + adjustedTitleFontSize);
     currentY += adjustedTitleFontSize + lineSpacing;
   }
 
-  // Draw decor and structure
-  ctx.font = `${valueFontSize}px ${fontFamily}`;
-  ctx.fillText(`${decor} ${structure}`, textX, currentY + valueFontSize);
-  // Match the total spacing from name->structure: we need the same total gap
-  // After name we add: adjustedTitleFontSize + lineSpacing
-  // After structure we need to add the same total to create equal visual spacing
-  currentY += adjustedTitleFontSize + lineSpacing;
+  // Draw decor and structure (skip for fronty as it has no decor)
+  if (row.productType !== 'fronty') {
+    ctx.font = `${valueFontSize}px ${fontFamily}`;
+    ctx.fillText(`${decor} ${structure}`, textX, currentY + valueFontSize);
+    currentY += valueFontSize + lineSpacing;
+  }
 
   // Table-like format for product details
   ctx.font = `${labelFontSize}px ${fontFamily}`;
 
-  // Description
-  if (description) {
+  // Description (skip for fronty as it's used for "Kolor" field)
+  if (description && row.productType !== 'fronty') {
     ctx.fillStyle = '#333333';
     ctx.font = `${labelFontSize}px ${fontFamily}`;
     const descLines = wrapText(ctx, description, availableTextWidth);
@@ -251,7 +260,15 @@ async function drawLabel(
 
   // Calculate label column width based on product type
   let labelColumnWidth: number;
-  if (row.productType === 'plyty') {
+  if (row.productType === 'fronty') {
+    labelColumnWidth = Math.max(
+      ctx.measureText('Producent:').width,
+      ctx.measureText('Typ:').width,
+      ctx.measureText('Kolor:').width,
+      ctx.measureText('Informacje:').width,
+      ctx.measureText('oczekiwania:').width // "Czas" will be on separate line
+    ) + Math.round(1 * MM_TO_PIXELS);
+  } else if (row.productType === 'plyty') {
     labelColumnWidth = Math.max(
       ctx.measureText('Producent:').width,
       ctx.measureText('Grubość:').width,
@@ -269,22 +286,96 @@ async function drawLabel(
   const valueX = textX + labelColumnWidth;
   const availableValueWidth = availableTextWidth - labelColumnWidth;
 
-  // Producer
-  if (producer) {
-    ctx.fillStyle = '#333333';
-    ctx.font = `${labelFontSize}px ${fontFamily}`;
-    ctx.fillText('Producent:', textX, currentY);
-    ctx.fillText(producer, valueX, currentY);
-    currentY += labelFontSize + lineSpacing * 0.6;
-  }
+  if (row.productType === 'fronty') {
+    // For fronty: display Producent, Typ, Kolor, Informacje, Czas oczekiwania
 
-  // Thickness
-  if (thickness !== '') {
-    ctx.fillStyle = '#333333';
-    ctx.font = `${labelFontSize}px ${fontFamily}`;
-    ctx.fillText('Grubość:', textX, currentY);
-    ctx.fillText(thickness + 'mm', valueX, currentY);
-    currentY += labelFontSize + lineSpacing * 0.6;
+    // Producer
+    if (producer) {
+      ctx.fillStyle = '#333333';
+      ctx.font = `${labelFontSize}px ${fontFamily}`;
+      currentY += labelFontSize;
+      ctx.fillText('Producent:', textX, currentY);
+      ctx.fillText(producer, valueX, currentY);
+      currentY += lineSpacing * 0.6;
+    }
+
+    // Typ (structure = front_typ)
+    if (structure) {
+      ctx.fillStyle = '#333333';
+      ctx.font = `${labelFontSize}px ${fontFamily}`;
+      currentY += labelFontSize;
+      ctx.fillText('Typ:', textX, currentY);
+      ctx.fillText(structure, valueX, currentY);
+      currentY += lineSpacing * 0.6;
+    }
+
+    // Kolor (description = kolor)
+    if (description) {
+      ctx.fillStyle = '#333333';
+      ctx.font = `${labelFontSize}px ${fontFamily}`;
+      currentY += labelFontSize;
+      ctx.fillText('Kolor:', textX, currentY);
+      const kolorLines = wrapText(ctx, description, availableValueWidth);
+      kolorLines.forEach((line, index) => {
+        if (index === 0) {
+          ctx.fillText(line, valueX, currentY);
+        } else {
+          ctx.fillText(line, valueX, currentY + (index * labelFontSize * 1.1));
+        }
+      });
+      currentY += (kolorLines.length - 1) * labelFontSize * 1.1 + lineSpacing * 0.6;
+    }
+
+    // Informacje (thickness = info)
+    if (thickness) {
+      ctx.fillStyle = '#333333';
+      ctx.font = `${labelFontSize}px ${fontFamily}`;
+      currentY += labelFontSize;
+      ctx.fillText('Informacje:', textX, currentY);
+      const infoLines = wrapText(ctx, thickness, availableValueWidth);
+      infoLines.forEach((line, index) => {
+        if (index === 0) {
+          ctx.fillText(line, valueX, currentY);
+        } else {
+          ctx.fillText(line, valueX, currentY + (index * labelFontSize * 1.1));
+        }
+      });
+      currentY += (infoLines.length - 1) * labelFontSize * 1.1 + lineSpacing * 0.6;
+    }
+
+    // Czas oczekiwania (widths = czas_oczekiwania)
+    if (widths) {
+      ctx.fillStyle = '#333333';
+      ctx.font = `${labelFontSize}px ${fontFamily}`;
+      currentY += labelFontSize;
+      // Display "Czas" on first line
+      ctx.fillText('Czas', textX, currentY);
+      currentY += labelFontSize * 1.1;
+      // Display "oczekiwania:" on second line with value
+      ctx.fillText('oczekiwania:', textX, currentY);
+      ctx.fillText(widths, valueX, currentY);
+      currentY += lineSpacing;
+    }
+  } else {
+    // For plyty and blaty: existing logic
+
+    // Producer
+    if (producer) {
+      ctx.fillStyle = '#333333';
+      ctx.font = `${labelFontSize}px ${fontFamily}`;
+      ctx.fillText('Producent:', textX, currentY);
+      ctx.fillText(producer, valueX, currentY);
+      currentY += labelFontSize + lineSpacing * 0.6;
+    }
+
+    // Thickness
+    if (thickness !== '') {
+      ctx.fillStyle = '#333333';
+      ctx.font = `${labelFontSize}px ${fontFamily}`;
+      ctx.fillText('Grubość:', textX, currentY);
+      ctx.fillText(thickness + 'mm', valueX, currentY);
+      currentY += labelFontSize + lineSpacing * 0.6;
+    }
   }
 
   // For płyty: show as "Wymiary: height x width"
@@ -296,7 +387,7 @@ async function drawLabel(
       ctx.fillText(`${lengths} x ${widths}`, valueX, currentY);
       currentY += labelFontSize + lineSpacing;
     }
-  } else {
+  } else if (row.productType === 'blaty') {
     // For blaty: show as separate "Szerokości" and "Długości"
     // Width
     if (widths && widths !== '') {
@@ -342,6 +433,7 @@ async function drawLabel(
       currentY += lengthLines.length * labelFontSize * 1.1 + lineSpacing;
     }
   }
+  // For fronty: dimensions handling is already done in the fronty-specific section above
 
   // Draw scan instruction below QR code (after all other text to avoid overlap)
   ctx.fillStyle = '#333333';
