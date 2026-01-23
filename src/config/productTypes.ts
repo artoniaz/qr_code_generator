@@ -116,9 +116,9 @@ export const PRODUCT_TYPES: Record<string, ProductTypeConfig> = {
   fronty: {
     id: 'fronty',
     name: 'Fronty',
-    description: 'Format frontów: Producent (indeks 1), Typ frontu (indeks 2), Kolor (indeks 3), Informacje (indeks 4), Typ frezowania (indeks 5), Czas oczekiwania (indeks 6), URL (indeks 8)',
+    description: 'Format frontów: Producent (indeks 1), Typ frontu (indeks 2), Kolor (indeks 3), Informacje (indeks 4), Typ frezowania (indeks 5), Czas oczekiwania (indeks 6), URL (indeks 8 lub 9)',
     fields: {
-      urlIndex: 8,
+      urlIndex: 8, // Default for old format, will be adjusted in csvParser
       idIndex: 0,
       producerIndex: 1,
       structureIndex: 2,  // front_typ
