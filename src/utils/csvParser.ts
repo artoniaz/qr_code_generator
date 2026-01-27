@@ -23,12 +23,11 @@ export function parseCSVRow(row: string[], index: number, productTypeId: string 
   const errors: string[] = [];
   const productTypeConfig = getProductTypeById(productTypeId);
 
-  // For fronty: dynamically adjust URL index based on row length
-  // New format (with cena_brutto_laser): 10 columns, URL at index 9
-  // Old format (without cena_brutto_laser): 9 columns, URL at index 8
+  // For fronty: URL is always in the last column regardless of format
+  // This handles different producers with varying column counts
   let urlIndex = productTypeConfig.fields.urlIndex;
   if (productTypeId === 'fronty') {
-    urlIndex = row.length >= 10 ? 9 : 8;
+    urlIndex = row.length - 1;
   }
 
   // Get URL from configured index
