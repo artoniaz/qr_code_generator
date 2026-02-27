@@ -2,7 +2,7 @@ export interface CSVRow {
   id: string;
   productName: string;
   url: string;
-  rawData: string[];
+  rawData: Record<string, string>;
   isValid: boolean;
   errors: string[];
   isExcluded?: boolean;

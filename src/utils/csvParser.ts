@@ -19,21 +19,11 @@ export function validateURL(url: string): ValidationResult {
   };
 }
 
-export function parseCSVRow(row: string[], index: number, productTypeId: string = 'plyty'): CSVRow {
+export function parseCSVRow(row: Record<string, string>, index: number, productTypeId: string = 'plyty'): CSVRow {
   const errors: string[] = [];
   const productTypeConfig = getProductTypeById(productTypeId);
 
-  // For fronty: URL is always in the last column regardless of format
-  // This handles different producers with varying column counts
-  let urlIndex = productTypeConfig.fields.urlIndex;
-  if (productTypeId === 'fronty') {
-    urlIndex = row.length - 1;
-  }
-
-  // Get URL from configured index
-  const url = row[urlIndex] || '';
-
-  // Format product name using the product type's formatter
+  const url = row[productTypeConfig.fields.urlColumn] || '';
   const productName = productTypeConfig.formatProductName(row);
 
   if (!productName.trim()) {
@@ -45,11 +35,7 @@ export function parseCSVRow(row: string[], index: number, productTypeId: string 
     errors.push(...urlValidation.errors);
   }
 
-  // Use configured ID index or fallback to default
-  const idIndex = productTypeConfig.fields.idIndex ?? 0;
-  const id = row[idIndex] || `row-${index}`;
-
-  // Get additional card data if the product type provides a getCardData function
+  const id = row[productTypeConfig.fields.idColumn] || `row-${index}`;
   const cardData = productTypeConfig.getCardData ? productTypeConfig.getCardData(row) : undefined;
 
   return {
@@ -83,9 +69,10 @@ export async function parseCSVFile(file: File, productTypeId: string = 'plyty'):
 
       Papa.parse(text, {
         delimiter,
+        header: true,
         skipEmptyLines: true,
         complete: (results) => {
-          const rows = results.data as string[][];
+          const rows = results.data as Record<string, string>[];
           const parsedRows = rows.map((row, index) => parseCSVRow(row, index, productTypeId));
           resolve(parsedRows);
         },
@@ -105,24 +92,23 @@ export async function parseCSVFile(file: File, productTypeId: string = 'plyty'):
 
 export function checkDuplicates(rows: CSVRow[]): CSVRow[] {
   const urlMap = new Map<string, number>();
-  const productBaseCodeMap = new Map<string, number>();
+  const productCodeMap = new Map<string, number>();
 
   return rows.map(row => {
     if (!row.isValid) return row;
 
-    // Get productBaseCode from rawData (column 1 for plyty and blaty, but skip for fronty)
-    // For fronty, column 1 is the producer which repeats across products
-    const productBaseCode = row.productType !== 'fronty' ? (row.rawData[1] || '') : '';
+    // Get product code from named column (skip for fronty which has no code column)
+    const productCode = row.productType !== 'fronty' ? (row.rawData['code'] || '') : '';
 
     // Check for duplicate URLs
     const urlCount = urlMap.get(row.url) || 0;
     urlMap.set(row.url, urlCount + 1);
 
-    // Check for duplicate productBaseCode (skip for fronty)
-    let baseCodeCount = 0;
-    if (productBaseCode) {
-      baseCodeCount = productBaseCodeMap.get(productBaseCode) || 0;
-      productBaseCodeMap.set(productBaseCode, baseCodeCount + 1);
+    // Check for duplicate product code (skip for fronty)
+    let codeCount = 0;
+    if (productCode) {
+      codeCount = productCodeMap.get(productCode) || 0;
+      productCodeMap.set(productCode, codeCount + 1);
     }
 
     const errors = [...row.errors];
@@ -133,8 +119,8 @@ export function checkDuplicates(rows: CSVRow[]): CSVRow[] {
       shouldExclude = true;
     }
 
-    if (baseCodeCount > 0 && productBaseCode) {
-      errors.push(`Duplikat kodu produktu (występuje ${baseCodeCount + 1} razy)`);
+    if (codeCount > 0 && productCode) {
+      errors.push(`Duplikat kodu produktu (występuje ${codeCount + 1} razy)`);
       shouldExclude = true;
     }
 

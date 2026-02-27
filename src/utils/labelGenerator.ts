@@ -186,15 +186,15 @@ async function drawLabel(
       lengths = '';
     }
   } else {
-    // For blaty (worktops), use rawData
-    decor = row.rawData[2] || '';
-    structure = row.rawData[3] || '';
-    name = row.rawData[4] || '';
-    description = row.rawData[11] || '';
-    thickness = (row.rawData[13] || '').toString().trim();
-    producer = row.rawData[15] || '';
-    const widthStr = row.rawData[10] || '';
-    const lengthStr = row.rawData[9] || '';
+    // For blaty (worktops), use named columns from rawData
+    decor = row.rawData['decor'] || '';
+    structure = row.rawData['structure'] || '';
+    name = row.rawData['name'] || '';
+    description = row.rawData['description'] || '';
+    thickness = (row.rawData['thickness'] || '').toString().trim();
+    producer = row.rawData['producer'] || '';
+    const widthStr = row.rawData['width'] || '';
+    const lengthStr = row.rawData['length'] || '';
 
     // Format widths: split by semicolon and add "mm" to each
     widths = widthStr.split(';').map(w => w.trim() + 'mm').filter(w => w !== 'mm').join(', ');
