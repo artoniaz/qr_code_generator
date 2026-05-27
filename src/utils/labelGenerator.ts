@@ -185,6 +185,20 @@ async function drawLabel(
       widths = '';
       lengths = '';
     }
+  } else if (row.productType === 'blaty_j') {
+    // For blaty J (Juan worktops), use Polish-named columns from rawData
+    decor = row.rawData['dekor'] || '';
+    structure = row.rawData['struktura'] || '';
+    name = row.rawData['nazwa'] || '';
+    description = row.rawData['kolekcja'] || '';
+    thickness = (row.rawData['grubosc'] || '').toString().trim();
+    producer = ''; // no producer column in this format
+    const widthStr = row.rawData['szerokosci'] || '';
+    const lengthStr = row.rawData['dlugosci'] || '';
+
+    // Format widths/lengths: split by semicolon and add "mm" to each
+    widths = widthStr.split(';').map(w => w.trim() + 'mm').filter(w => w !== 'mm').join(', ');
+    lengths = lengthStr.split(';').map(l => l.trim() + 'mm').filter(l => l !== 'mm').join(', ');
   } else {
     // For blaty (worktops), use named columns from rawData
     decor = row.rawData['decor'] || '';
@@ -407,7 +421,7 @@ async function drawLabel(
       ctx.fillText(`${lengths} x ${widths}`, valueX, currentY);
       currentY += labelFontSize + lineSpacing;
     }
-  } else if (row.productType === 'blaty') {
+  } else if (row.productType === 'blaty' || row.productType === 'blaty_j') {
     // For blaty: show as separate "Szerokości" and "Długości"
     // Width
     if (widths && widths !== '') {
