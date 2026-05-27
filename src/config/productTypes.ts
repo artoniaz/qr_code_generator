@@ -78,6 +78,32 @@ export const PRODUCT_TYPES: Record<string, ProductTypeConfig> = {
     },
   },
 
+  blaty_j: {
+    id: 'blaty_j',
+    name: 'Blaty J',
+    description: 'Format blatów (Juan, polskie nazwy kolumn): id, dekor, struktura, nazwa, grubosc, kolekcja, dlugosci, szerokosci, url',
+    fields: {
+      urlColumn: 'url',
+      idColumn: 'id',
+      productCodeColumn: '', // no dedicated product code column in this format
+    },
+    formatProductName: (row) => {
+      const colorName = row['nazwa'] || '';
+      const dekor = row['dekor'] || '';
+      const struktura = row['struktura'] || '';
+
+      if (colorName && dekor && struktura) {
+        const formattedColor = colorName
+          .split(' ')
+          .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+          .join(' ');
+        return `${formattedColor} ${dekor} ${struktura}`;
+      }
+
+      return row['dekor'] || '';
+    },
+  },
+
   fronty: {
     id: 'fronty',
     name: 'Fronty',
