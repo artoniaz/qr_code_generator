@@ -21,6 +21,11 @@ const PADDING_TOP_PX = Math.round(5 * MM_TO_PIXELS); // ~59 pixels
 const PADDING_BOTTOM_PX = Math.round(5 * MM_TO_PIXELS); // ~59 pixels
 const TEXT_SPACING_PX = Math.round(3 * MM_TO_PIXELS); // ~35 pixels
 
+// Logo drawn in the bottom-left corner, below the scan instruction
+const LOGO_SRC = '/logo.png';
+const LOGO_SIZE_MM = 8.5;
+const LOGO_SIZE_PX = Math.round(LOGO_SIZE_MM * MM_TO_PIXELS); // ~100 pixels
+
 interface LabelDimensions {
   width: number;
   height: number;
@@ -44,6 +49,26 @@ function getLabelDimensions(): LabelDimensions {
 }
 
 // Font loading functionality removed - using system Arial font only
+
+// drawLabel runs once per row, so the logo is cached at module level - otherwise
+// a 500-row batch would re-fetch and re-decode the same image 500 times.
+let logoPromise: Promise<HTMLImageElement | null> | null = null;
+
+function loadLogo(): Promise<HTMLImageElement | null> {
+  if (!logoPromise) {
+    logoPromise = new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = () => {
+        // Missing logo must not break generation - labels are still usable without it
+        console.warn(`Logo not found at ${LOGO_SRC} - generating labels without it`);
+        resolve(null);
+      };
+      img.src = LOGO_SRC;
+    });
+  }
+  return logoPromise;
+}
 
 function wrapText(
   ctx: CanvasRenderingContext2D,
@@ -73,6 +98,17 @@ function wrapText(
   return lines;
 }
 
+// Some exports carry thickness as "18.0" where others use a plain "18". Strip a
+// redundant trailing zero so the two read the same on the label, while keeping
+// genuine fractional thicknesses like 18.3 intact. Values without a decimal
+// separator are returned untouched, so "180" never becomes "18".
+function formatThickness(value: string): string {
+  if (!/[.,]/.test(value)) {
+    return value;
+  }
+  return value.replace(/0+$/, '').replace(/[.,]$/, '');
+}
+
 async function drawLabel(
   row: CSVRow,
   settings: AppSettings
@@ -100,8 +136,9 @@ async function drawLabel(
   const leftSectionWidth = availableWidth * 0.35;
   const rightSectionWidth = availableWidth * 0.65;
 
-  // QR code fills 75% of the available height - smaller
-  const qrSizePx = availableHeight * 0.75;
+  // QR code fills 68% of the available height - leaves a band at the bottom
+  // of the left column for the logo, below the scan instruction
+  const qrSizePx = availableHeight * 0.68;
   const qrX = dims.paddingLeft + (leftSectionWidth - qrSizePx) / 2; // Center horizontally in left section
   const qrY = dims.paddingTop; // Position at top
 
@@ -190,7 +227,7 @@ async function drawLabel(
     decor = row.rawData['dekor'] || '';
     structure = row.rawData['struktura'] || '';
     name = row.rawData['nazwa'] || '';
-    description = row.rawData['kolekcja'] || '';
+    description = ''; // this format has no description column - kolekcja has its own row
     thickness = (row.rawData['grubosc'] || '').toString().trim();
     producer = ''; // no producer column in this format
     const widthStr = row.rawData['szerokosci'] || '';
@@ -214,6 +251,12 @@ async function drawLabel(
     widths = widthStr.split(';').map(w => w.trim() + 'mm').filter(w => w !== 'mm').join(', ');
     lengths = lengthStr.split(';').map(l => l.trim() + 'mm').filter(l => l !== 'mm').join(', ');
   }
+
+  // Optional collection name from the CSV "kolekcja" column, printed under the
+  // "Kolekcja:" label. Read straight from the raw row rather than through
+  // getCardData(), since every product type uses the same column name. Accepts
+  // either casing depending on how the export names the header.
+  const collectionText = (row.rawData['kolekcja'] || row.rawData['Kolekcja'] || '').trim();
 
   // Font sizes - decreased by 2px
   const titleFontSize = Math.round(16 * MM_TO_PIXELS / 3) - 2; // ~61 pixels
@@ -250,10 +293,13 @@ async function drawLabel(
     currentY += adjustedTitleFontSize + lineSpacing;
   }
 
-  // Draw decor and structure (skip for fronty as it has no decor)
-  if (row.productType !== 'fronty') {
+  // Draw decor and structure (skip for fronty as it has no decor). Trimmed so a
+  // row with only one of the two does not print a trailing space, and skipped
+  // entirely when both are empty rather than reserving a blank line.
+  const decorStructure = `${decor} ${structure}`.trim();
+  if (row.productType !== 'fronty' && decorStructure) {
     ctx.font = `${valueFontSize}px ${fontFamily}`;
-    ctx.fillText(`${decor} ${structure}`, textX, currentY + valueFontSize);
+    ctx.fillText(decorStructure, textX, currentY + valueFontSize);
     currentY += valueFontSize + lineSpacing;
   }
 
@@ -287,12 +333,14 @@ async function drawLabel(
     ) + Math.round(1 * MM_TO_PIXELS);
   } else if (row.productType === 'plyty') {
     labelColumnWidth = Math.max(
+      ctx.measureText('Kolekcja:').width,
       ctx.measureText('Producent:').width,
       ctx.measureText('Grubość:').width,
       ctx.measureText('Wymiary:').width
     ) + Math.round(1 * MM_TO_PIXELS);
   } else {
     labelColumnWidth = Math.max(
+      ctx.measureText('Kolekcja:').width,
       ctx.measureText('Producent:').width,
       ctx.measureText('Grubość:').width,
       ctx.measureText('Szerokości:').width,
@@ -393,6 +441,18 @@ async function drawLabel(
   } else {
     // For plyty and blaty: existing logic
 
+    // Collection - value comes from the CSV "kolekcja" column
+    if (collectionText) {
+      ctx.fillStyle = '#333333';
+      ctx.font = `${labelFontSize}px ${fontFamily}`;
+      ctx.fillText('Kolekcja:', textX, currentY);
+      const collectionLines = wrapText(ctx, collectionText, availableValueWidth);
+      collectionLines.forEach((line, index) => {
+        ctx.fillText(line, valueX, currentY + (index * labelFontSize * 1.1));
+      });
+      currentY += collectionLines.length * labelFontSize * 1.1 + lineSpacing * 0.6;
+    }
+
     // Producer
     if (producer) {
       ctx.fillStyle = '#333333';
@@ -407,7 +467,7 @@ async function drawLabel(
       ctx.fillStyle = '#333333';
       ctx.font = `${labelFontSize}px ${fontFamily}`;
       ctx.fillText('Grubość:', textX, currentY);
-      ctx.fillText(thickness + 'mm', valueX, currentY);
+      ctx.fillText(formatThickness(thickness) + 'mm', valueX, currentY);
       currentY += labelFontSize + lineSpacing * 0.6;
     }
   }
@@ -491,6 +551,18 @@ async function drawLabel(
   // Clamp to left section
   scanLine2X = Math.max(dims.paddingLeft, Math.min(scanLine2X, scanTextMaxX - scanLine2Width));
   ctx.fillText(scanLine2, scanLine2X, scanTextY + scanLineHeight);
+
+  // Draw logo in the bottom-left corner, aligned with the left padding
+  const logo = await loadLogo();
+  if (logo) {
+    // Fit into a square box while preserving the source aspect ratio
+    const logoScale = Math.min(LOGO_SIZE_PX / logo.width, LOGO_SIZE_PX / logo.height);
+    const logoWidth = logo.width * logoScale;
+    const logoHeight = logo.height * logoScale;
+    const logoX = dims.paddingLeft;
+    const logoY = canvas.height - dims.paddingBottom - logoHeight;
+    ctx.drawImage(logo, logoX, logoY, logoWidth, logoHeight);
+  }
 
   // Return the image as data URL
   return canvas.toDataURL('image/png');
