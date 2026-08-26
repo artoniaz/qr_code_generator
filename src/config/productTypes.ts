@@ -26,7 +26,7 @@ export const PRODUCT_TYPES: Record<string, ProductTypeConfig> = {
   plyty: {
     id: 'plyty',
     name: 'Płyty',
-    description: 'Format płyt: kolumny id, code, decor, structure, name, url, height, width, description, thickness, producer',
+    description: 'Format płyt: kolumny id, code, decor, structure, name, url, height, width, description, thickness, producer, kolekcja (opcjonalna)',
     fields: {
       urlColumn: 'url',
       idColumn: 'id',
@@ -55,7 +55,7 @@ export const PRODUCT_TYPES: Record<string, ProductTypeConfig> = {
   blaty: {
     id: 'blaty',
     name: 'Blaty',
-    description: 'Format blatów: kolumny id, code, decor, structure, name, url, length, width, description, thickness, producer',
+    description: 'Format blatów: kolumny id, code, decor, structure, name, url, length, width, description, thickness, producer, kolekcja (opcjonalna)',
     fields: {
       urlColumn: 'url',
       idColumn: 'id',
