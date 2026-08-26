@@ -1,3 +1,12 @@
+// Front variant of a board: the same product cut to size and sold per m²
+// rather than as a whole sheet. Optional - only exports carrying a
+// producent_front column have it, and only those labels print a front section.
+export interface FrontVariant {
+  producer?: string;
+  millingType?: string;
+  leadTime?: string;
+}
+
 export interface CSVRow {
   id: string;
   productName: string;
@@ -15,7 +24,10 @@ export interface CSVRow {
     thickness?: string;
     producer?: string;
     dimensions?: string;
-    millingType?: string; // frez_typ for fronty
+    info?: string; // free-form note printed as "Informacje"
+    millingType?: string; // frez_typ
+    leadTime?: string; // lead time printed as "Dostępność"
+    front?: FrontVariant; // per-m² front variant (boards sold both ways)
   };
 }
 

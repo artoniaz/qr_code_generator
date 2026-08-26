@@ -7,6 +7,33 @@ interface PreviewTableProps {
   maxRows?: number;
 }
 
+// A board sold as a front too is named after its colour and every fronty row is
+// named "Front meblowy", so the name column alone says little about which
+// product a line is. This second line carries what actually distinguishes them,
+// plus which sale variants the label will print - a missing producent_front or
+// arkusz_* column is otherwise invisible until the labels come off the printer.
+function getRowDetails(row: CSVRow): string | null {
+  const card = row.cardData;
+
+  if (row.productType === 'fronty') {
+    return [card?.structure, card?.description]
+      .map(part => (part || '').trim())
+      .filter(part => part !== '')
+      .join(' · ') || null;
+  }
+
+  if (!card?.front) {
+    return null;
+  }
+
+  const parts = [card.structure, card.dimensions]
+    .map(part => (part || '').trim())
+    .filter(part => part !== '');
+  parts.push('arkusz + front');
+
+  return parts.join(' · ');
+}
+
 export const PreviewTable: React.FC<PreviewTableProps> = ({
   rows,
   onToggleExclude,
@@ -68,7 +95,12 @@ export const PreviewTable: React.FC<PreviewTableProps> = ({
                     {row.isValid ? '✓' : '✗'}
                   </span>
                 </td>
-                <td className="col-name">{row.productName || '(puste)'}</td>
+                <td className="col-name">
+                  {row.productName || '(puste)'}
+                  {getRowDetails(row) && (
+                    <div className="row-details">{getRowDetails(row)}</div>
+                  )}
+                </td>
                 <td className="col-url">
                   <div className="url-cell" title={row.url}>
                     {row.url || '(puste)'}

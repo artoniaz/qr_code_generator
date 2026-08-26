@@ -109,73 +109,202 @@ function formatThickness(value: string): string {
   return value.replace(/0+$/, '').replace(/[.,]$/, '');
 }
 
-async function drawLabel(
-  row: CSVRow,
-  settings: AppSettings
-): Promise<string> {
-  const canvas = document.createElement('canvas');
-  const ctx = canvas.getContext('2d');
+// Two layouts need more rows than the fixed-size text block can hold: fronty,
+// and a board that is also sold as a cut front - the latter has to state the
+// terms of both sale forms on one 61 mm label. Rather than drawing at a fixed
+// size and letting a long value run off the bottom edge unnoticed, these blocks
+// are assembled as a list of rows, measured, and scaled down until they fit.
+type LabelTextRow =
+  | { kind: 'title'; text: string }
+  | { kind: 'section'; text: string }
+  | { kind: 'separator' }
+  | { kind: 'field'; label: string; value: string };
 
-  if (!ctx) {
-    throw new Error('Failed to create canvas context');
+interface LabelTextGeometry {
+  textX: number;
+  availableTextWidth: number;
+  startY: number;
+  maxY: number;
+}
+
+// Scaling stops here: below roughly three quarters of the base size the print
+// stops being readable at arm's length, so one extreme row is better slightly
+// clipped than every label uniformly illegible.
+const MEASURED_MIN_SCALE = 0.72;
+const MEASURED_SCALE_STEP = 0.02;
+
+function isTextField(
+  item: LabelTextRow
+): item is Extract<LabelTextRow, { kind: 'field' }> {
+  return item.kind === 'field';
+}
+
+export function usesMeasuredTextLayout(row: CSVRow): boolean {
+  return row.productType === 'fronty' || row.cardData?.front !== undefined;
+}
+
+function buildLabelTextRows(row: CSVRow): LabelTextRow[] {
+  const card = row.cardData;
+  const rows: LabelTextRow[] = [{ kind: 'title', text: row.productName }];
+
+  const addField = (label: string, value?: string) => {
+    const text = (value || '').trim();
+    if (text) {
+      rows.push({ kind: 'field', label, value: text });
+    }
+  };
+
+  if (card?.front) {
+    // The board's own terms lead, because selling the whole sheet is the
+    // primary form; the front cut from it follows below the rule.
+    addField('Producent:', card.producer);
+    addField('Typ:', card.structure);
+    addField('Informacje:', card.info);
+    addField('Dostępność:', card.leadTime);
+    addField('Wymiary:', card.dimensions);
+    addField('Forma sprzedaży:', 'arkusz');
+
+    rows.push({ kind: 'separator' });
+    rows.push({ kind: 'section', text: 'Front meblowy' });
+    addField('Producent:', card.front.producer);
+    addField('Frezowanie:', card.front.millingType);
+    addField('Dostępność:', card.front.leadTime);
+    addField('Forma sprzedaży:', 'sprzedaż na m²');
+
+    return rows;
   }
 
-  const dims = getLabelDimensions();
-  canvas.width = dims.width;
-  canvas.height = dims.height;
+  addField('Producent:', card?.producer);
+  addField('Typ:', card?.structure);
+  addField('Kolor:', card?.description);
+  addField('Informacje:', card?.info);
+  addField('Frezowanie:', card?.millingType);
+  addField('Dostępność:', card?.leadTime);
 
-  // Fill with white background
-  ctx.fillStyle = 'white';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  return rows;
+}
 
-  // Calculate available space for left and right sections
-  const availableWidth = canvas.width - dims.paddingLeft - dims.paddingRight;
-  const availableHeight = canvas.height - dims.paddingTop - dims.paddingBottom;
+// Draws the text block at the given scale and returns the Y it ends at. With
+// `draw` false nothing is painted, which is how the fitting loop sizes up a
+// candidate scale - keeping measurement and painting in one function is what
+// stops the two from drifting apart.
+function renderMeasuredText(
+  ctx: CanvasRenderingContext2D,
+  rows: LabelTextRow[],
+  geom: LabelTextGeometry,
+  scale: number,
+  draw: boolean
+): number {
+  const fontFamily = 'Arial';
+  const titleFontSize = Math.round(((16 * MM_TO_PIXELS) / 3 - 2) * scale);
+  const labelFontSize = Math.round(((11 * MM_TO_PIXELS) / 3 - 2) * scale);
+  const lineSpacing = Math.round(1.5 * MM_TO_PIXELS * scale);
+  const rowGap = lineSpacing * 0.6;
 
-  // Divide canvas: left 35% for QR code, right 65% for text
-  const leftSectionWidth = availableWidth * 0.35;
-  const rightSectionWidth = availableWidth * 0.65;
+  ctx.font = `${labelFontSize}px ${fontFamily}`;
+  const labelWidths = rows
+    .filter(isTextField)
+    .map(item => ctx.measureText(item.label).width);
+  const labelColumnWidth =
+    (labelWidths.length > 0 ? Math.max(...labelWidths) : 0) +
+    Math.round(1 * MM_TO_PIXELS * scale);
+  const valueX = geom.textX + labelColumnWidth;
+  const availableValueWidth = geom.availableTextWidth - labelColumnWidth;
 
-  // QR code fills 68% of the available height - leaves a band at the bottom
-  // of the left column for the logo, below the scan instruction
-  const qrSizePx = availableHeight * 0.68;
-  const qrX = dims.paddingLeft + (leftSectionWidth - qrSizePx) / 2; // Center horizontally in left section
-  const qrY = dims.paddingTop; // Position at top
+  let currentY = geom.startY;
 
-  // Generate QR code
-  const qrDataUrl = await generateQRCode(row.url, settings.qrSize);
+  for (const item of rows) {
+    if (item.kind === 'title') {
+      // Shrink an over-wide title before resorting to wrapping, so a long name
+      // costs width rather than one of the few rows left.
+      let titleSize = titleFontSize;
+      ctx.font = `${titleSize}px ${fontFamily}`;
+      while (
+        ctx.measureText(item.text).width > geom.availableTextWidth &&
+        titleSize > labelFontSize
+      ) {
+        titleSize -= 2;
+        ctx.font = `${titleSize}px ${fontFamily}`;
+      }
 
-  // Draw QR code
-  const qrImage = new Image();
-  await new Promise<void>((resolve, reject) => {
-    qrImage.onload = () => resolve();
-    qrImage.onerror = () => reject(new Error('Failed to load QR code'));
-    qrImage.src = qrDataUrl;
-  });
+      const titleLines = wrapText(ctx, item.text, geom.availableTextWidth);
+      if (draw) {
+        ctx.fillStyle = 'black';
+        titleLines.forEach((line, index) => {
+          ctx.fillText(line, geom.textX, currentY + titleSize + index * titleSize * 1.2);
+        });
+      }
+      currentY += titleSize + (titleLines.length - 1) * titleSize * 1.2 + lineSpacing;
+    } else if (item.kind === 'section') {
+      if (draw) {
+        ctx.fillStyle = 'black';
+        ctx.font = `bold ${labelFontSize}px ${fontFamily}`;
+        ctx.fillText(item.text, geom.textX, currentY + labelFontSize);
+      }
+      currentY += labelFontSize + rowGap;
+    } else if (item.kind === 'separator') {
+      currentY += rowGap;
+      if (draw) {
+        ctx.strokeStyle = '#999999';
+        ctx.lineWidth = Math.max(1, Math.round(2 * scale));
+        ctx.beginPath();
+        ctx.moveTo(geom.textX, currentY);
+        ctx.lineTo(geom.textX + geom.availableTextWidth, currentY);
+        ctx.stroke();
+      }
+      currentY += rowGap;
+    } else {
+      ctx.font = `${labelFontSize}px ${fontFamily}`;
+      const valueLines = wrapText(ctx, item.value, availableValueWidth);
+      currentY += labelFontSize;
+      if (draw) {
+        ctx.fillStyle = '#333333';
+        ctx.fillText(item.label, geom.textX, currentY);
+        valueLines.forEach((line, index) => {
+          ctx.fillText(line, valueX, currentY + index * labelFontSize * 1.1);
+        });
+      }
+      currentY += (valueLines.length - 1) * labelFontSize * 1.1 + rowGap;
+    }
+  }
 
-  ctx.drawImage(qrImage, qrX, qrY, qrSizePx, qrSizePx);
+  return currentY;
+}
 
-  // Calculate scan text dimensions (will draw later)
-  const scanFontSize = Math.round(10 * MM_TO_PIXELS / 3); // ~39 pixels (increased from 8 to 10)
-  const scanFontFamily = 'Arial';
-  const scanLine1 = 'zeskanuj,';
-  const scanLine2 = 'aby zobaczyć cenę';
-  const scanLineHeight = scanFontSize * 1.2;
-  const scanTextY = qrY + qrSizePx + Math.round(2 * MM_TO_PIXELS); // Below QR code with spacing
+function drawMeasuredText(
+  ctx: CanvasRenderingContext2D,
+  row: CSVRow,
+  geom: LabelTextGeometry
+): void {
+  const rows = buildLabelTextRows(row);
+  const budget = geom.maxY - geom.startY;
+  const steps = Math.round((1 - MEASURED_MIN_SCALE) / MEASURED_SCALE_STEP);
 
-  // Draw optional border for debugging
-  ctx.strokeStyle = '#cccccc';
-  ctx.lineWidth = 1;
-  ctx.strokeRect(0, 0, canvas.width, canvas.height);
+  // Try the full size first and step down to the first scale that fits. Falling
+  // through the whole range means even the floor overflows - draw at the floor
+  // rather than shrinking past the point of legibility.
+  let scale = MEASURED_MIN_SCALE;
+  for (let step = 0; step <= steps; step++) {
+    const candidate = 1 - step * MEASURED_SCALE_STEP;
+    if (renderMeasuredText(ctx, rows, geom, candidate, false) - geom.startY <= budget) {
+      scale = candidate;
+      break;
+    }
+  }
 
-  // Text configuration - right section with more spacing from QR code
-  const textX = dims.paddingLeft + leftSectionWidth + dims.textSpacing * 2; // Double spacing from QR code
-  const availableTextWidth = rightSectionWidth - dims.textSpacing * 2;
+  renderMeasuredText(ctx, rows, geom, scale, true);
+}
 
-  // Ensure right section text doesn't overlap with QR + scan text
-  // Start right section text either at top or below scan text, whichever ensures no overlap
-  const rightSectionMinY = dims.paddingTop; // Start at top
 
+// Fixed-size text block for the layouts that comfortably fit it: title,
+// decor/structure, description and the label/value rows.
+function drawStandardProductText(
+  ctx: CanvasRenderingContext2D,
+  row: CSVRow,
+  textX: number,
+  availableTextWidth: number,
+  rightSectionMinY: number
+): void {
   // Extract data based on product type
   let decor: string;
   let structure: string;
@@ -185,20 +314,8 @@ async function drawLabel(
   let producer: string;
   let widths: string;
   let lengths: string;
-  let millingType: string = '';
 
-  if (row.productType === 'fronty' && row.cardData) {
-    // For fronty, use cardData with specific mapping
-    decor = ''; // No decor for fronty
-    structure = row.cardData.structure || ''; // front_typ
-    name = row.productName; // "Front meblowy"
-    description = row.cardData.description || ''; // kolor
-    thickness = row.cardData.thickness || ''; // info
-    producer = row.cardData.producer || '';
-    widths = row.cardData.dimensions || ''; // czas_oczekiwania
-    lengths = '';
-    millingType = row.cardData.millingType || ''; // frez_typ
-  } else if (row.productType === 'plyty' && row.cardData) {
+  if (row.productType === 'plyty' && row.cardData) {
     // For płyty, use cardData
     decor = row.cardData.decor || '';
     structure = row.cardData.structure || '';
@@ -293,11 +410,11 @@ async function drawLabel(
     currentY += adjustedTitleFontSize + lineSpacing;
   }
 
-  // Draw decor and structure (skip for fronty as it has no decor). Trimmed so a
-  // row with only one of the two does not print a trailing space, and skipped
-  // entirely when both are empty rather than reserving a blank line.
+  // Draw decor and structure. Trimmed so a row with only one of the two does
+  // not print a trailing space, and skipped entirely when both are empty rather
+  // than reserving a blank line.
   const decorStructure = `${decor} ${structure}`.trim();
-  if (row.productType !== 'fronty' && decorStructure) {
+  if (decorStructure) {
     ctx.font = `${valueFontSize}px ${fontFamily}`;
     ctx.fillText(decorStructure, textX, currentY + valueFontSize);
     currentY += valueFontSize + lineSpacing;
@@ -306,8 +423,8 @@ async function drawLabel(
   // Table-like format for product details
   ctx.font = `${labelFontSize}px ${fontFamily}`;
 
-  // Description (skip for fronty as it's used for "Kolor" field)
-  if (description && row.productType !== 'fronty') {
+  // Description
+  if (description) {
     ctx.fillStyle = '#333333';
     ctx.font = `${labelFontSize}px ${fontFamily}`;
     const descLines = wrapText(ctx, description, availableTextWidth);
@@ -322,16 +439,7 @@ async function drawLabel(
 
   // Calculate label column width based on product type
   let labelColumnWidth: number;
-  if (row.productType === 'fronty') {
-    labelColumnWidth = Math.max(
-      ctx.measureText('Producent:').width,
-      ctx.measureText('Typ:').width,
-      ctx.measureText('Kolor:').width,
-      ctx.measureText('Informacje:').width,
-      ctx.measureText('Frezowanie:').width,
-      ctx.measureText('oczekiwania:').width // "Czas" will be on separate line
-    ) + Math.round(1 * MM_TO_PIXELS);
-  } else if (row.productType === 'plyty') {
+  if (row.productType === 'plyty') {
     labelColumnWidth = Math.max(
       ctx.measureText('Kolekcja:').width,
       ctx.measureText('Producent:').width,
@@ -351,125 +459,35 @@ async function drawLabel(
   const valueX = textX + labelColumnWidth;
   const availableValueWidth = availableTextWidth - labelColumnWidth;
 
-  if (row.productType === 'fronty') {
-    // For fronty: display Producent, Typ, Kolor, Informacje, Czas oczekiwania
 
-    // Producer
-    if (producer) {
-      ctx.fillStyle = '#333333';
-      ctx.font = `${labelFontSize}px ${fontFamily}`;
-      currentY += labelFontSize;
-      ctx.fillText('Producent:', textX, currentY);
-      ctx.fillText(producer, valueX, currentY);
-      currentY += lineSpacing * 0.6;
-    }
+  // Collection - value comes from the CSV "kolekcja" column
+  if (collectionText) {
+    ctx.fillStyle = '#333333';
+    ctx.font = `${labelFontSize}px ${fontFamily}`;
+    ctx.fillText('Kolekcja:', textX, currentY);
+    const collectionLines = wrapText(ctx, collectionText, availableValueWidth);
+    collectionLines.forEach((line, index) => {
+      ctx.fillText(line, valueX, currentY + (index * labelFontSize * 1.1));
+    });
+    currentY += collectionLines.length * labelFontSize * 1.1 + lineSpacing * 0.6;
+  }
 
-    // Typ (structure = front_typ)
-    if (structure) {
-      ctx.fillStyle = '#333333';
-      ctx.font = `${labelFontSize}px ${fontFamily}`;
-      currentY += labelFontSize;
-      ctx.fillText('Typ:', textX, currentY);
-      ctx.fillText(structure, valueX, currentY);
-      currentY += lineSpacing * 0.6;
-    }
+  // Producer
+  if (producer) {
+    ctx.fillStyle = '#333333';
+    ctx.font = `${labelFontSize}px ${fontFamily}`;
+    ctx.fillText('Producent:', textX, currentY);
+    ctx.fillText(producer, valueX, currentY);
+    currentY += labelFontSize + lineSpacing * 0.6;
+  }
 
-    // Kolor (description = kolor)
-    if (description) {
-      ctx.fillStyle = '#333333';
-      ctx.font = `${labelFontSize}px ${fontFamily}`;
-      currentY += labelFontSize;
-      ctx.fillText('Kolor:', textX, currentY);
-      const kolorLines = wrapText(ctx, description, availableValueWidth);
-      kolorLines.forEach((line, index) => {
-        if (index === 0) {
-          ctx.fillText(line, valueX, currentY);
-        } else {
-          ctx.fillText(line, valueX, currentY + (index * labelFontSize * 1.1));
-        }
-      });
-      currentY += (kolorLines.length - 1) * labelFontSize * 1.1 + lineSpacing * 0.6;
-    }
-
-    // Informacje (thickness = info) - only show if info exists
-    if (thickness) {
-      ctx.fillStyle = '#333333';
-      ctx.font = `${labelFontSize}px ${fontFamily}`;
-      currentY += labelFontSize;
-      ctx.fillText('Informacje:', textX, currentY);
-      const infoLines = wrapText(ctx, thickness, availableValueWidth);
-      infoLines.forEach((line, index) => {
-        if (index === 0) {
-          ctx.fillText(line, valueX, currentY);
-        } else {
-          ctx.fillText(line, valueX, currentY + (index * labelFontSize * 1.1));
-        }
-      });
-      currentY += (infoLines.length - 1) * labelFontSize * 1.1 + lineSpacing * 0.6;
-    }
-
-    // Frezowanie (millingType = frez_typ)
-    if (millingType) {
-      ctx.fillStyle = '#333333';
-      ctx.font = `${labelFontSize}px ${fontFamily}`;
-      currentY += labelFontSize;
-      ctx.fillText('Frezowanie:', textX, currentY);
-      const frezLines = wrapText(ctx, millingType, availableValueWidth);
-      frezLines.forEach((line, index) => {
-        if (index === 0) {
-          ctx.fillText(line, valueX, currentY);
-        } else {
-          ctx.fillText(line, valueX, currentY + (index * labelFontSize * 1.1));
-        }
-      });
-      currentY += (frezLines.length - 1) * labelFontSize * 1.1 + lineSpacing * 0.6;
-    }
-
-    // Czas oczekiwania (widths = czas_oczekiwania)
-    if (widths) {
-      ctx.fillStyle = '#333333';
-      ctx.font = `${labelFontSize}px ${fontFamily}`;
-      currentY += labelFontSize;
-      // Display "Czas" on first line
-      ctx.fillText('Czas', textX, currentY);
-      currentY += labelFontSize * 1.1;
-      // Display "oczekiwania:" on second line with value
-      ctx.fillText('oczekiwania:', textX, currentY);
-      ctx.fillText(widths, valueX, currentY);
-      currentY += lineSpacing;
-    }
-  } else {
-    // For plyty and blaty: existing logic
-
-    // Collection - value comes from the CSV "kolekcja" column
-    if (collectionText) {
-      ctx.fillStyle = '#333333';
-      ctx.font = `${labelFontSize}px ${fontFamily}`;
-      ctx.fillText('Kolekcja:', textX, currentY);
-      const collectionLines = wrapText(ctx, collectionText, availableValueWidth);
-      collectionLines.forEach((line, index) => {
-        ctx.fillText(line, valueX, currentY + (index * labelFontSize * 1.1));
-      });
-      currentY += collectionLines.length * labelFontSize * 1.1 + lineSpacing * 0.6;
-    }
-
-    // Producer
-    if (producer) {
-      ctx.fillStyle = '#333333';
-      ctx.font = `${labelFontSize}px ${fontFamily}`;
-      ctx.fillText('Producent:', textX, currentY);
-      ctx.fillText(producer, valueX, currentY);
-      currentY += labelFontSize + lineSpacing * 0.6;
-    }
-
-    // Thickness
-    if (thickness !== '') {
-      ctx.fillStyle = '#333333';
-      ctx.font = `${labelFontSize}px ${fontFamily}`;
-      ctx.fillText('Grubość:', textX, currentY);
-      ctx.fillText(formatThickness(thickness) + 'mm', valueX, currentY);
-      currentY += labelFontSize + lineSpacing * 0.6;
-    }
+  // Thickness
+  if (thickness !== '') {
+    ctx.fillStyle = '#333333';
+    ctx.font = `${labelFontSize}px ${fontFamily}`;
+    ctx.fillText('Grubość:', textX, currentY);
+    ctx.fillText(formatThickness(thickness) + 'mm', valueX, currentY);
+    currentY += labelFontSize + lineSpacing * 0.6;
   }
 
   // For płyty: show as "Wymiary: height x width"
@@ -527,7 +545,85 @@ async function drawLabel(
       currentY += lengthLines.length * labelFontSize * 1.1 + lineSpacing;
     }
   }
-  // For fronty: dimensions handling is already done in the fronty-specific section above
+}
+
+async function drawLabel(
+  row: CSVRow,
+  settings: AppSettings
+): Promise<string> {
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+
+  if (!ctx) {
+    throw new Error('Failed to create canvas context');
+  }
+
+  const dims = getLabelDimensions();
+  canvas.width = dims.width;
+  canvas.height = dims.height;
+
+  // Fill with white background
+  ctx.fillStyle = 'white';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // Calculate available space for left and right sections
+  const availableWidth = canvas.width - dims.paddingLeft - dims.paddingRight;
+  const availableHeight = canvas.height - dims.paddingTop - dims.paddingBottom;
+
+  // Divide canvas: left 35% for QR code, right 65% for text
+  const leftSectionWidth = availableWidth * 0.35;
+  const rightSectionWidth = availableWidth * 0.65;
+
+  // QR code fills 68% of the available height - leaves a band at the bottom
+  // of the left column for the logo, below the scan instruction
+  const qrSizePx = availableHeight * 0.68;
+  const qrX = dims.paddingLeft + (leftSectionWidth - qrSizePx) / 2; // Center horizontally in left section
+  const qrY = dims.paddingTop; // Position at top
+
+  // Generate QR code
+  const qrDataUrl = await generateQRCode(row.url, settings.qrSize);
+
+  // Draw QR code
+  const qrImage = new Image();
+  await new Promise<void>((resolve, reject) => {
+    qrImage.onload = () => resolve();
+    qrImage.onerror = () => reject(new Error('Failed to load QR code'));
+    qrImage.src = qrDataUrl;
+  });
+
+  ctx.drawImage(qrImage, qrX, qrY, qrSizePx, qrSizePx);
+
+  // Calculate scan text dimensions (will draw later)
+  const scanFontSize = Math.round(10 * MM_TO_PIXELS / 3); // ~39 pixels (increased from 8 to 10)
+  const scanFontFamily = 'Arial';
+  const scanLine1 = 'zeskanuj,';
+  const scanLine2 = 'aby zobaczyć cenę';
+  const scanLineHeight = scanFontSize * 1.2;
+  const scanTextY = qrY + qrSizePx + Math.round(2 * MM_TO_PIXELS); // Below QR code with spacing
+
+  // Draw optional border for debugging
+  ctx.strokeStyle = '#cccccc';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(0, 0, canvas.width, canvas.height);
+
+  // Text configuration - right section with more spacing from QR code
+  const textX = dims.paddingLeft + leftSectionWidth + dims.textSpacing * 2; // Double spacing from QR code
+  const availableTextWidth = rightSectionWidth - dims.textSpacing * 2;
+
+  // Ensure right section text doesn't overlap with QR + scan text
+  // Start right section text either at top or below scan text, whichever ensures no overlap
+  const rightSectionMinY = dims.paddingTop; // Start at top
+
+  if (usesMeasuredTextLayout(row)) {
+    drawMeasuredText(ctx, row, {
+      textX,
+      availableTextWidth,
+      startY: rightSectionMinY,
+      maxY: dims.paddingTop + availableHeight,
+    });
+  } else {
+    drawStandardProductText(ctx, row, textX, availableTextWidth, rightSectionMinY);
+  }
 
   // Draw scan instruction below QR code (after all other text to avoid overlap)
   ctx.fillStyle = '#333333';
