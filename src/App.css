@@ -413,6 +413,12 @@
   max-width: 300px;
 }
 
+.row-details {
+  margin-top: 2px;
+  font-size: 0.8em;
+  color: #666;
+}
+
 .col-url {
   min-width: 250px;
   max-width: 400px;

@@ -1,3 +1,5 @@
+import type { FrontVariant } from '../types.ts';
+
 export interface ProductTypeConfig {
   id: string;
   name: string;
@@ -18,15 +20,55 @@ export interface ProductTypeConfig {
     thickness?: string;
     producer?: string;
     dimensions?: string;
+    info?: string;
     millingType?: string;
+    leadTime?: string;
+    front?: FrontVariant;
   };
+}
+
+// A board opts into the two-variant label through its data rather than through
+// a producer name hard-coded here: an export carrying producent_front is sold
+// both as a whole sheet and as a cut front, and gets both sections. Every other
+// board export has no such column and prints exactly as it always did.
+function getFrontVariant(row: Record<string, string>): FrontVariant | undefined {
+  const producer = (row['producent_front'] || '').trim();
+
+  if (!producer) {
+    return undefined;
+  }
+
+  return {
+    producer,
+    millingType: (row['frez_typ'] || '').trim(),
+    leadTime: (row['front_czas_oczekiwania'] || '').trim(),
+  };
+}
+
+// "2800 × 1300 × 18 mm" - one row rather than three, which matters on a label
+// that already carries two sale variants. "arkusz_szczerokosc" is how the
+// current export spells the width header; the corrected spelling is accepted
+// too, so fixing it upstream will not silently drop the width.
+function formatBoardDimensions(row: Record<string, string>): string {
+  const parts = [
+    row['arkusz_dlugosc'],
+    row['arkusz_szczerokosc'] || row['arkusz_szerokosc'],
+    row['arkusz_grubosc'],
+  ]
+    .map(part => (part || '').trim())
+    .filter(part => part !== '');
+
+  return parts.length > 0 ? `${parts.join(' × ')} mm` : '';
 }
 
 export const PRODUCT_TYPES: Record<string, ProductTypeConfig> = {
   plyty: {
     id: 'plyty',
     name: 'Płyty',
-    description: 'Format płyt: kolumny id, code, decor, structure, name, url, height, width, description, thickness, producer, kolekcja (opcjonalna)',
+    description:
+      'Format płyt: kolumny id, code, decor, structure, name, url, height, width, description, thickness, producer, kolekcja (opcjonalna). ' +
+      'Płyta sprzedawana też jako front: producent_arkusz, front_typ, kolor, info, arkusz_dlugosc, arkusz_szczerokosc, arkusz_grubosc, ' +
+      'arkusz_czas_oczekiwania, producent_front, frez_typ, front_czas_oczekiwania',
     fields: {
       urlColumn: 'url',
       idColumn: 'id',
@@ -40,16 +82,43 @@ export const PRODUCT_TYPES: Record<string, ProductTypeConfig> = {
           .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
           .join(' ');
       }
+
+      // A board sold as a front too has no name column - the colour is what
+      // tells one product from another. Left verbatim, since title-casing it
+      // would mangle decor codes like "POLAR 11279M".
+      const colour = (row['kolor'] || '').trim();
+      if (colour) {
+        return colour;
+      }
+
       return row['code'] || '';
     },
-    getCardData: (row) => ({
-      decor: row['decor'],
-      structure: row['structure'],
-      description: row['description'],
-      thickness: row['thickness'],
-      producer: row['producer'],
-      dimensions: row['height'] && row['width'] ? `${row['height']} x ${row['width']}` : '',
-    }),
+    getCardData: (row) => {
+      const front = getFrontVariant(row);
+
+      // Boards sold as fronty too come from a different export, which names the
+      // board's own fields after the sheet (arkusz_*) and keeps front_typ / info
+      // for what the standard format calls structure / description.
+      if (front) {
+        return {
+          structure: row['front_typ'],
+          producer: row['producent_arkusz'],
+          info: row['info'],
+          leadTime: row['arkusz_czas_oczekiwania'],
+          dimensions: formatBoardDimensions(row),
+          front,
+        };
+      }
+
+      return {
+        decor: row['decor'],
+        structure: row['structure'],
+        description: row['description'],
+        thickness: row['thickness'],
+        producer: row['producer'],
+        dimensions: row['height'] && row['width'] ? `${row['height']} x ${row['width']}` : '',
+      };
+    },
   },
 
   blaty: {
@@ -107,20 +176,22 @@ export const PRODUCT_TYPES: Record<string, ProductTypeConfig> = {
   fronty: {
     id: 'fronty',
     name: 'Fronty',
-    description: 'Format frontów: kolumny id, producer, front_typ, kolor, info, frez_typ, czas_oczekiwania, url',
+    description: 'Format frontów: kolumny id, producent_front (lub producer), front_typ, kolor, info, frez_typ, front_czas_oczekiwania, url',
     fields: {
       urlColumn: 'url',
       idColumn: 'id',
       productCodeColumn: '', // no product code for fronty
     },
-    formatProductName: (_row) => 'Front meblowy',
+    formatProductName: () => 'Front meblowy',
     getCardData: (row) => ({
-      producer: row['producer'],
+      // Older exports name the front's maker "producer"; newer ones split it
+      // into producent_front and producent_arkusz. Same for the lead time.
+      producer: row['producent_front'] || row['producer'] || '',
       structure: row['front_typ'],
       description: row['kolor'],
-      thickness: row['info'],
+      info: row['info'],
       millingType: row['frez_typ'],
-      dimensions: row['czas_oczekiwania'],
+      leadTime: row['front_czas_oczekiwania'] || row['czas_oczekiwania'] || '',
     }),
   },
 };
