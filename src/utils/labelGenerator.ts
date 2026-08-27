@@ -664,6 +664,27 @@ async function drawLabel(
   return canvas.toDataURL('image/png');
 }
 
+// Every fronty label is titled "Front meblowy", so naming the files after the
+// title alone would leave a folder of names that differ only by their running
+// number. The colour is what tells those products apart on the label, so it
+// joins the file name too - unless the title already carries it, which is how a
+// row that does have a sheet is named.
+function buildLabelFileName(row: CSVRow): string {
+  const name = row.productName.trim();
+
+  if (row.productType !== 'fronty') {
+    return name;
+  }
+
+  const colour = (row.cardData?.description || '').trim();
+
+  if (!colour || name.toLowerCase().includes(colour.toLowerCase())) {
+    return name;
+  }
+
+  return `${name} ${colour}`;
+}
+
 export async function generateLabels(
   rows: CSVRow[],
   settings: AppSettings,
@@ -697,7 +718,7 @@ export async function generateLabels(
     }
 
     // Create safe file name - preserve Polish characters
-    const safeFileName = row.productName
+    const safeFileName = buildLabelFileName(row)
       .replace(/[<>:"/\\|?*]/g, '_') // Only remove characters that are invalid in filenames
       .replace(/\s+/g, '_') // Replace spaces with underscores
       .substring(0, 50);

@@ -1,6 +1,6 @@
 import Papa from 'papaparse';
 import type { CSVRow, ValidationResult } from '../types.ts';
-import { getProductTypeById } from '../config/productTypes.ts';
+import { getProductTypeById, resolveRowProductType } from '../config/productTypes.ts';
 
 const URL_REGEX = /^https?:\/\/.+/i;
 
@@ -21,7 +21,13 @@ export function validateURL(url: string): ValidationResult {
 
 export function parseCSVRow(row: Record<string, string>, index: number, productTypeId: string = 'plyty'): CSVRow {
   const errors: string[] = [];
-  const productTypeConfig = getProductTypeById(productTypeId);
+  // The type picked in the dropdown describes the export, not necessarily every
+  // row in it: a sheet+front export mixes rows that have a sheet with rows that
+  // are a bare front. Each row therefore resolves its own type, and everything
+  // downstream - title, card data, which label layout is drawn, what the
+  // preview shows - follows from it.
+  const effectiveTypeId = resolveRowProductType(row, productTypeId);
+  const productTypeConfig = getProductTypeById(effectiveTypeId);
 
   const url = row[productTypeConfig.fields.urlColumn] || '';
   const productName = productTypeConfig.formatProductName(row);
@@ -46,7 +52,7 @@ export function parseCSVRow(row: Record<string, string>, index: number, productT
     isValid: errors.length === 0,
     errors,
     isExcluded: false,
-    productType: productTypeId,
+    productType: effectiveTypeId,
     cardData
   };
 }
