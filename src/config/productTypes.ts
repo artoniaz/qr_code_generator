@@ -45,6 +45,41 @@ function getFrontVariant(row: Record<string, string>): FrontVariant | undefined 
   };
 }
 
+// Not every row of that export actually has a sheet behind the front - some
+// fronts are sold on their own and their sheet columns come out blank. The
+// sheet's own price and lead time carry no signal here (cena_brutto_arkusz is
+// "0,00" and arkusz_czas_oczekiwania is empty on every single row of the
+// export), so presence is read off the producer and the three dimensions -
+// exactly what the sheet section of the label would print.
+export function hasSheetHalf(row: Record<string, string>): boolean {
+  return [
+    row['producent_arkusz'],
+    row['arkusz_dlugosc'],
+    row['arkusz_szczerokosc'] || row['arkusz_szerokosc'],
+    row['arkusz_grubosc'],
+  ].some(value => (value || '').trim() !== '');
+}
+
+// A sheet+front row with no sheet is simply a front, and is printed by the
+// plain fronty label instead of by a combined one with an empty half and a
+// stranded "Forma sprzedaży: arkusz". The fronty config reads the very columns
+// this export has, so the redirect is a change of product type and nothing
+// more - no separate rendering path to keep in sync.
+export function resolveRowProductType(
+  row: Record<string, string>,
+  productTypeId: string
+): string {
+  if (
+    productTypeId === 'plyty' &&
+    getFrontVariant(row) !== undefined &&
+    !hasSheetHalf(row)
+  ) {
+    return 'fronty';
+  }
+
+  return productTypeId;
+}
+
 // "2800 × 1300 × 18 mm" - one row rather than three, which matters on a label
 // that already carries two sale variants. "arkusz_szczerokosc" is how the
 // current export spells the width header; the corrected spelling is accepted
